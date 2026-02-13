@@ -21,7 +21,13 @@ layout["footer"].update(
 )
 
 
-with Live(layout, refresh_per_second=2) as live:
-    for i in range(10):
-        time.sleep(1)
-        layout["body"].update(build_panel(i))
+try:
+    with Live(layout, refresh_per_second=2) as live:
+        i = 0
+        while True:
+            time.sleep(1)
+            layout["body"].update(build_panel(i))
+            i += 1
+
+except KeyboardInterrupt:
+    pass
