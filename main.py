@@ -1,5 +1,8 @@
 from rich.console import Console
+from rich.panel import Panel
 
 console = Console()
 
-console.print("TUI Monitor Started")
+panel = Panel("TUI Monitor Started", title="Status")
+
+console.print(panel)
