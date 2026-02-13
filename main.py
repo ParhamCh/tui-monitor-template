@@ -22,7 +22,7 @@ layout["footer"].update(
 
 
 try:
-    with Live(layout, refresh_per_second=2) as live:
+    with Live(layout, refresh_per_second=2, screen=True, transient=True) as live:
         i = 0
         while True:
             time.sleep(1)
