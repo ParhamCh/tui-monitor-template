@@ -1,14 +1,10 @@
 import time
 from rich.console import Console
-from rich.panel import Panel
 from rich.live import Live
+from ui.components import build_panel
 
 
 console = Console()
-
-
-def build_panel(tick: int) -> Panel:
-    return Panel(f"Tick: {tick}", title="Status")
 
 
 with Live(build_panel(0), refresh_per_second=2) as live:
