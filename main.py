@@ -14,7 +14,11 @@ layout["header"].update(
     Panel("TUI Monitor", border_style="cyan")
 )
 
-layout["body"].update(build_panel(0))
+layout["left"].update(build_panel(0))
+
+layout["right"].update(
+    Panel("Right Panel", border_style="yellow")
+)
 
 layout["footer"].update(
     Panel("Press Ctrl+C to exit", border_style="grey50")
