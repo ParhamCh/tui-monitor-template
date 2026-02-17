@@ -4,26 +4,45 @@ from rich.panel import Panel
 from ui.components import build_panel, build_status_table
 from ui.layout import build_layout
 from data.fake_provider import get_service_status
+from rich.columns import Columns
+from rich.align import Align
+from rich.text import Text
 
 
 def render_header() -> Panel:
     """
-    Render header with static title and dynamic current time.
+    Render header with structured two-column layout:
+    - Left: static title
+    - Right: dynamic current time
     """
-    current_time = time.strftime("%H:%M:%S")
 
-    content = f"TUI Monitor   |   Time: {current_time}"
+    left = Text("TUI Monitor", style="bold cyan")
+
+    current_time = time.strftime("%H:%M:%S")
+    right = Align.right(
+        Text(f"Time: {current_time}", style="cyan")
+    )
+
+    content = Columns([left, right], expand=True)
 
     return Panel(content, border_style="cyan")
 
 
 def render_footer(start_time: float) -> Panel:
     """
-    Render footer with static hint and dynamic uptime.
+    Render footer with structured two-column layout:
+    - Left: static hint
+    - Right: dynamic uptime
     """
-    uptime = format_uptime(start_time)
 
-    content = f"Press Ctrl+C to exit   |   Uptime: {uptime}"
+    left = Text("Press Ctrl+C to exit", style="grey70")
+
+    uptime = format_uptime(start_time)
+    right = Align.right(
+        Text(f"Uptime: {uptime}", style="grey70")
+    )
+
+    content = Columns([left, right], expand=True)
 
     return Panel(content, border_style="grey50")
 
