@@ -17,6 +17,9 @@ def run_dashboard():
         Panel("Press Ctrl+C to exit", border_style="grey50")
     )
 
+    layout["left"].update(build_panel(0))
+    layout["right"].update(build_status_table(get_service_status()))
+
     i = 0
 
     try:
