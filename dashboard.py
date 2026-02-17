@@ -6,6 +6,28 @@ from ui.layout import build_layout
 from data.fake_provider import get_service_status
 
 
+def render_header() -> Panel:
+    """
+    Render header with static title and dynamic current time.
+    """
+    current_time = time.strftime("%H:%M:%S")
+
+    content = f"TUI Monitor   |   Time: {current_time}"
+
+    return Panel(content, border_style="cyan")
+
+
+def render_footer(start_time: float) -> Panel:
+    """
+    Render footer with static hint and dynamic uptime.
+    """
+    uptime = format_uptime(start_time)
+
+    content = f"Press Ctrl+C to exit   |   Uptime: {uptime}"
+
+    return Panel(content, border_style="grey50")
+
+
 def build():
     """
     Build base layout structure.
@@ -19,13 +41,8 @@ def initialize(layout):
     Prevents initial flicker caused by empty Layout sections.
     """
 
-    layout["header"].update(
-        Panel("TUI Monitor", border_style="cyan")
-    )
-
-    layout["footer"].update(
-        Panel("Uptime: 00:00:00", border_style="grey50")
-    )
+    layout["header"].update(render_header())
+    layout["footer"].update(render_footer(time.time()))
 
     layout["left"].update(build_panel(0))
     layout["right"].update(build_status_table(get_service_status()))
@@ -60,12 +77,8 @@ def run(layout, start_time):
                 build_status_table(get_service_status())
             )
 
-            layout["footer"].update(
-                Panel(
-                    f"Uptime: {format_uptime(start_time)}",
-                    border_style="grey50"
-                )
-            )
+            layout["header"].update(render_header())
+            layout["footer"].update(render_footer(start_time))
 
             i += 1
 
