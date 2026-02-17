@@ -4,7 +4,7 @@ from rich.live import Live
 from rich.panel import Panel
 from ui.layout import build_layout
 from ui.components import build_panel, build_status_table
-
+from data.fake_provider import get_service_status
 
 
 console = Console()
@@ -17,7 +17,7 @@ layout["header"].update(
 
 layout["left"].update(build_panel(0))
 
-layout["right"].update(build_status_table())
+layout["right"].update(build_status_table(get_service_status()))
 
 layout["footer"].update(
     Panel("Press Ctrl+C to exit", border_style="grey50")
@@ -29,8 +29,12 @@ try:
         i = 0
         while True:
             time.sleep(1)
+
             layout["left"].update(build_panel(i))
+            layout["right"].update(build_status_table(get_service_status()))
+
             i += 1
 
 except KeyboardInterrupt:
     pass
+

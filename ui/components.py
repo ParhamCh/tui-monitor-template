@@ -6,14 +6,13 @@ def build_panel(tick: int) -> Panel:
     return Panel(f"Tick: {tick}", title="Status")
 
 
-def build_status_table() -> Panel:
+def build_status_table(services: dict) -> Panel:
     table = Table(title="Services")
 
     table.add_column("Service")
     table.add_column("Status")
 
-    table.add_row("API", "OK")
-    table.add_row("DB", "OK")
-    table.add_row("Cache", "OK")
+    for name, status in services.items():
+        table.add_row(name, status)
 
     return Panel(table, border_style="yellow")
