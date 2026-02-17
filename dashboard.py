@@ -1,12 +1,14 @@
 import time
 from rich.live import Live
 from rich.panel import Panel
-from ui.components import build_panel, build_status_table
-from ui.layout import build_layout
-from data.fake_provider import get_service_status
 from rich.columns import Columns
 from rich.align import Align
 from rich.text import Text
+from ui.layout import build_layout
+from ui.components import build_status_table, build_metrics_table
+from data.fake_provider import get_service_status
+from data.fake_metrics import get_metrics
+
 
 
 def render_header() -> Panel:
@@ -63,7 +65,7 @@ def initialize(layout):
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(time.time()))
 
-    layout["left"].update(build_panel(0))
+    layout["left"].update(build_metrics_table(get_metrics()))
     layout["right"].update(build_status_table(get_service_status()))
 
 
@@ -91,7 +93,9 @@ def run(layout, start_time):
         while True:
             time.sleep(1)
 
-            layout["left"].update(build_panel(i))
+            layout["left"].update(
+                build_metrics_table(get_metrics())
+            )
             layout["right"].update(
                 build_status_table(get_service_status())
             )

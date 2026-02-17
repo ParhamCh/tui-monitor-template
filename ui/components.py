@@ -18,10 +18,6 @@ def format_status(status: str) -> Text:
         return Text(status)
 
 
-def build_panel(tick: int) -> Panel:
-    return Panel(f"Tick: {tick}", title="Status")
-
-
 def build_status_table(services: dict) -> Panel:
     table = Table(title="Services")
 
@@ -32,4 +28,20 @@ def build_status_table(services: dict) -> Panel:
         table.add_row(name, format_status(status))
 
     return Panel(table, border_style="yellow")
+
+
+def build_metrics_table(metrics: dict) -> Panel:
+    """
+    Render system metrics table.
+    """
+
+    table = Table(title="System Metrics")
+
+    table.add_column("Metric")
+    table.add_column("Usage %")
+
+    for name, value in metrics.items():
+        table.add_row(name, f"{value}%")
+
+    return Panel(table, border_style="green")
 
