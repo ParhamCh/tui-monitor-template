@@ -2,8 +2,9 @@ import time
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from ui.components import build_panel
 from ui.layout import build_layout
+from ui.components import build_panel, build_status_table
+
 
 
 console = Console()
@@ -16,9 +17,7 @@ layout["header"].update(
 
 layout["left"].update(build_panel(0))
 
-layout["right"].update(
-    Panel("Right Panel", border_style="yellow")
-)
+layout["right"].update(build_status_table())
 
 layout["footer"].update(
     Panel("Press Ctrl+C to exit", border_style="grey50")
@@ -30,7 +29,7 @@ try:
         i = 0
         while True:
             time.sleep(1)
-            layout["body"].update(build_panel(i))
+            layout["left"].update(build_panel(i))
             i += 1
 
 except KeyboardInterrupt:
