@@ -6,19 +6,17 @@ from ui.layout import build_layout
 from data.fake_provider import get_service_status
 
 
-def initialize_layout(layout):
+def build():
     """
-    Fully initialize all layout sections before starting Live rendering.
+    Build base layout structure.
+    """
+    return build_layout()
 
-    Why this is required:
-    ---------------------
-    Rich's Live performs an immediate render on entry.
-    If any Layout section has no renderable assigned,
-    Rich will display its default object representation
-    (e.g. Layout(name='left')).
 
-    To prevent flicker and ensure a clean first frame,
-    every section must be populated before entering Live.
+def initialize(layout):
+    """
+    Fully initialize all layout sections before Live rendering.
+    Prevents initial flicker caused by empty Layout sections.
     """
 
     layout["header"].update(
@@ -33,26 +31,38 @@ def initialize_layout(layout):
     layout["right"].update(build_status_table(get_service_status()))
 
 
-def run_dashboard():
-
-    layout = build_layout()
-
-    # Phase 1: Initial layout population (mandatory before Live)
-    initialize_layout(layout)
+def run(layout):
+    """
+    Main live rendering loop.
+    """
 
     i = 0
 
+    with Live(layout, refresh_per_second=2, screen=True, transient=True):
+        while True:
+            time.sleep(1)
+
+            layout["left"].update(build_panel(i))
+            layout["right"].update(
+                build_status_table(get_service_status())
+            )
+
+            i += 1
+
+
+def shutdown():
+    """
+    Graceful shutdown hook.
+    Reserved for future resource cleanup.
+    """
+    pass
+
+
+def run_dashboard():
+    layout = build()
+    initialize(layout)
+
     try:
-        with Live(layout, refresh_per_second=2, screen=True, transient=True):
-            while True:
-                time.sleep(1)
-
-                layout["left"].update(build_panel(i))
-                layout["right"].update(
-                    build_status_table(get_service_status())
-                )
-
-                i += 1
-
+        run(layout)
     except KeyboardInterrupt:
-        pass
+        shutdown()
