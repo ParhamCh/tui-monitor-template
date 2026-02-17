@@ -24,14 +24,27 @@ def initialize(layout):
     )
 
     layout["footer"].update(
-        Panel("Press Ctrl+C to exit", border_style="grey50")
+        Panel("Uptime: 00:00:00", border_style="grey50")
     )
 
     layout["left"].update(build_panel(0))
     layout["right"].update(build_status_table(get_service_status()))
 
 
-def run(layout):
+def format_uptime(start_time: float) -> str:
+    """
+    Return formatted uptime string (HH:MM:SS).
+    """
+    elapsed = int(time.time() - start_time)
+
+    hours = elapsed // 3600
+    minutes = (elapsed % 3600) // 60
+    seconds = elapsed % 60
+
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+
+def run(layout, start_time):
     """
     Main live rendering loop.
     """
@@ -45,6 +58,13 @@ def run(layout):
             layout["left"].update(build_panel(i))
             layout["right"].update(
                 build_status_table(get_service_status())
+            )
+
+            layout["footer"].update(
+                Panel(
+                    f"Uptime: {format_uptime(start_time)}",
+                    border_style="grey50"
+                )
             )
 
             i += 1
@@ -62,7 +82,9 @@ def run_dashboard():
     layout = build()
     initialize(layout)
 
+    start_time = time.time()
+
     try:
-        run(layout)
+        run(layout, start_time)
     except KeyboardInterrupt:
         shutdown()
