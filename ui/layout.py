@@ -10,4 +10,9 @@ def build_layout():
         Layout(name="footer", size=3),
     )
 
+    layout["body"].split_row(
+        Layout(name="left", ratio=2),
+        Layout(name="right", ratio=1),
+    )
+
     return layout
