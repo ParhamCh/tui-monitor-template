@@ -11,8 +11,8 @@ def build_layout():
     )
 
     layout["body"].split_row(
-        Layout(name="left"),
-        Layout(name="right"),
+        Layout(name="left", ratio=2),
+        Layout(name="right", ratio=1),
     )
 
     return layout
