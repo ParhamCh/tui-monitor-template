@@ -6,9 +6,6 @@ from rich.align import Align
 from rich.text import Text
 from ui.layout import build_layout
 from ui.components import build_status_table, build_metrics_table
-from data.fake_provider import get_service_status
-from data.fake_metrics import get_metrics
-
 
 
 def render_header() -> Panel:
@@ -65,8 +62,18 @@ def initialize(layout):
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(time.time()))
 
-    layout["left"].update(build_metrics_table(get_metrics()))
-    layout["right"].update(build_status_table(get_service_status()))
+    layout["summary"].update(
+        Panel(Text("Cluster Summary (v0.3 in progress)", justify="center"))
+    )
+
+    layout["nodes"].update(
+        Panel(Text("Nodes Grid (dynamic)", justify="center"))
+    )
+
+    layout["alerts"].update(
+        Panel(Text("Alerts Panel", justify="center"))
+    )
+
 
 
 def format_uptime(start_time: float) -> str:
@@ -92,13 +99,6 @@ def run(layout, start_time):
     with Live(layout, refresh_per_second=2, screen=True, transient=True):
         while True:
             time.sleep(1)
-
-            layout["left"].update(
-                build_metrics_table(get_metrics())
-            )
-            layout["right"].update(
-                build_status_table(get_service_status())
-            )
 
             layout["header"].update(render_header())
             layout["footer"].update(render_footer(start_time))

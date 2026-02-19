@@ -6,13 +6,10 @@ def build_layout():
 
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="body", ratio=1),
+        Layout(name="summary", size=5),
+        Layout(name="nodes"),
+        Layout(name="alerts", size=5),
         Layout(name="footer", size=3),
-    )
-
-    layout["body"].split_row(
-        Layout(name="left", ratio=2),
-        Layout(name="right", ratio=1),
     )
 
     return layout
