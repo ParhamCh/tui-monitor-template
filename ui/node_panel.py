@@ -1,8 +1,9 @@
 from rich.panel import Panel
-from rich.table import Table
 from rich.progress_bar import ProgressBar
 from rich.text import Text
 from rich.columns import Columns
+from rich.console import Group
+from rich.align import Align
 
 
 def format_status(status: str) -> Text:
@@ -12,29 +13,30 @@ def format_status(status: str) -> Text:
 
 
 def metric_row(label: str, value: int):
-    """
-    Create one metric row with progress bar and percentage.
-    """
-
     bar = ProgressBar(total=100, completed=value)
+    percent = Text(f"{value:>3}%", style="bold")
 
-    percent = Text(f"{value}%", style="bold")
-
+    # You can keep expand=True here because the Layout cell controls width.
     return Columns(
         [
-            Text(f"{label:<6}", style="cyan"),
+            Text(f"{label:<4}", style="cyan"),
             bar,
-            percent,
+            Align.right(percent),
         ],
         expand=True,
     )
 
 
-def build_node_panel(node: dict) -> Panel:
-    """
-    Render hybrid node panel.
-    """
+def build_empty_node_panel(title: str = "Empty") -> Panel:
+    return Panel(
+        Align.center(Text("—", style="grey50"), vertical="middle"),
+        title=Text(title, style="grey50"),
+        border_style="grey50",
+        padding=(0, 1),
+    )
 
+
+def build_node_panel(node: dict) -> Panel:
     title = Text()
     title.append(node["name"], style="bold")
     title.append(" | ")
@@ -42,21 +44,24 @@ def build_node_panel(node: dict) -> Panel:
     title.append(" | ")
     title.append_text(format_status(node["status"]))
 
-    rows = [
+    info_row = Columns(
+        [
+            Text(f"Pods: {node['pods']}", style="yellow"),
+            Align.right(Text(f"Lat: {node['latency_ms']}ms", style="yellow")),
+        ],
+        expand=True,
+    )
+
+    content = Group(
         metric_row("CPU", node["cpu"]),
         metric_row("MEM", node["memory"]),
-        metric_row("Disk", node["disk"]),
-        Columns(
-            [
-                Text(f"Pods: {node['pods']}", style="yellow"),
-                Text(f"Lat: {node['latency_ms']}ms", style="yellow"),
-            ],
-            expand=True,
-        ),
-    ]
+        metric_row("DSK", node["disk"]),
+        info_row,
+    )
 
     return Panel(
-        Columns(rows, expand=True),
+        content,
         title=title,
         border_style="blue",
+        padding=(0, 1),
     )

@@ -5,10 +5,21 @@ from rich.columns import Columns
 from rich.align import Align
 from rich.text import Text
 from ui.layout import build_layout
-from ui.node_panel import build_node_panel
 from data.fake_cluster import get_cluster_state
 from ui.components import build_cluster_summary
+from ui.node_panel import build_node_panel, build_empty_node_panel
 
+
+def update_node_grid(layout, nodes: list[dict]):
+    # Take first 9 nodes for the demo page
+    panels = [build_node_panel(n) for n in nodes[:9]]
+
+    # Fill remaining slots with empty panels to keep a strict 3x3 grid
+    while len(panels) < 9:
+        panels.append(build_empty_node_panel())
+
+    for idx, panel in enumerate(panels):
+        layout[f"node_{idx}"].update(panel)
 
 
 def render_header() -> Panel:
@@ -66,18 +77,10 @@ def initialize(layout):
     layout["footer"].update(render_footer(time.time()))
 
     cluster = get_cluster_state()
-    layout["summary"].update(
-        build_cluster_summary(cluster["summary"])
-    )
 
-    node_panels = [
-        build_node_panel(node)
-        for node in cluster["nodes"]
-    ]
+    layout["summary"].update(build_cluster_summary(cluster["summary"]))
+    update_node_grid(layout, cluster["nodes"])
 
-    layout["nodes"].update(
-        Columns(node_panels, expand=True)
-    )
 
     layout["alerts"].update(
         Panel(Text("Alerts Panel", justify="center"))
@@ -108,24 +111,14 @@ def run(layout, start_time):
     with Live(layout, refresh_per_second=2, screen=True, transient=True):
         while True:
             time.sleep(1)
-            cluster = get_cluster_state()
 
             layout["header"].update(render_header())
             layout["footer"].update(render_footer(start_time))
 
-            layout["summary"].update(
-                build_cluster_summary(cluster["summary"])
-            )
+            cluster = get_cluster_state()
 
-            node_panels = [
-                build_node_panel(node)
-                for node in cluster["nodes"]
-            ]
-
-            layout["nodes"].update(
-                Columns(node_panels, expand=True)
-            )
-
+            layout["summary"].update(build_cluster_summary(cluster["summary"]))
+            update_node_grid(layout, cluster["nodes"])
 
             i += 1
 
