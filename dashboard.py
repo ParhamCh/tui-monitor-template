@@ -5,6 +5,7 @@ from rich.columns import Columns
 from rich.align import Align
 from rich.text import Text
 from ui.layout import build_layout
+from ui.node_panel import build_node_panel
 from data.fake_cluster import get_cluster_state
 from ui.components import build_cluster_summary
 
@@ -69,8 +70,13 @@ def initialize(layout):
         build_cluster_summary(cluster["summary"])
     )
 
+    node_panels = [
+        build_node_panel(node)
+        for node in cluster["nodes"]
+    ]
+
     layout["nodes"].update(
-        Panel(Text("Nodes Grid (dynamic)", justify="center"))
+        Columns(node_panels, expand=True)
     )
 
     layout["alerts"].update(
@@ -110,6 +116,16 @@ def run(layout, start_time):
             layout["summary"].update(
                 build_cluster_summary(cluster["summary"])
             )
+
+            node_panels = [
+                build_node_panel(node)
+                for node in cluster["nodes"]
+            ]
+
+            layout["nodes"].update(
+                Columns(node_panels, expand=True)
+            )
+
 
             i += 1
 
