@@ -5,7 +5,9 @@ from rich.columns import Columns
 from rich.align import Align
 from rich.text import Text
 from ui.layout import build_layout
-from ui.components import build_status_table, build_metrics_table
+from data.fake_cluster import get_cluster_state
+from ui.components import build_cluster_summary
+
 
 
 def render_header() -> Panel:
@@ -62,8 +64,9 @@ def initialize(layout):
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(time.time()))
 
+    cluster = get_cluster_state()
     layout["summary"].update(
-        Panel(Text("Cluster Summary (v0.3 in progress)", justify="center"))
+        build_cluster_summary(cluster["summary"])
     )
 
     layout["nodes"].update(
@@ -99,9 +102,14 @@ def run(layout, start_time):
     with Live(layout, refresh_per_second=2, screen=True, transient=True):
         while True:
             time.sleep(1)
+            cluster = get_cluster_state()
 
             layout["header"].update(render_header())
             layout["footer"].update(render_footer(start_time))
+
+            layout["summary"].update(
+                build_cluster_summary(cluster["summary"])
+            )
 
             i += 1
 

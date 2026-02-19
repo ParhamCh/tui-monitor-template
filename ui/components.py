@@ -1,47 +1,24 @@
 from rich.panel import Panel
-from rich.table import Table
+from rich.columns import Columns
 from rich.text import Text
 
 
-def format_status(status: str) -> Text:
+def build_cluster_summary(summary: dict) -> Panel:
     """
-    Return color-coded Text object based on service status.
-    """
-
-    if status == "OK":
-        return Text(status, style="green")
-    elif status == "WARN":
-        return Text(status, style="yellow")
-    elif status == "DOWN":
-        return Text(status, style="bold red")
-    else:
-        return Text(status)
-
-
-def build_status_table(services: dict) -> Panel:
-    table = Table(title="Services")
-
-    table.add_column("Service")
-    table.add_column("Status")
-
-    for name, status in services.items():
-        table.add_row(name, format_status(status))
-
-    return Panel(table, border_style="yellow")
-
-
-def build_metrics_table(metrics: dict) -> Panel:
-    """
-    Render system metrics table.
+    Render cluster summary panel.
     """
 
-    table = Table(title="System Metrics")
+    items = [
+        Text(f"Nodes: {summary['total_nodes']}", style="cyan"),
+        Text(f"Ready: {summary['ready_nodes']}", style="green"),
+        Text(f"CPU Avg: {summary['avg_cpu']}%", style="yellow"),
+        Text(f"Mem Avg: {summary['avg_memory']}%", style="yellow"),
+        Text(f"Pods: {summary['total_pods']}", style="magenta"),
+    ]
 
-    table.add_column("Metric")
-    table.add_column("Usage %")
-
-    for name, value in metrics.items():
-        table.add_row(name, f"{value}%")
-
-    return Panel(table, border_style="green")
+    return Panel(
+        Columns(items, expand=True),
+        title="Cluster Summary",
+        border_style="green",
+    )
 
