@@ -4,18 +4,21 @@ from rich.panel import Panel
 from rich.columns import Columns
 from rich.align import Align
 from rich.text import Text
+from config import GRID_PRESET
 from ui.layout import build_layout
 from data.fake_cluster import get_cluster_state
 from ui.components import build_cluster_summary
 from ui.node_panel import build_node_panel, build_empty_node_panel
 
 
-def update_node_grid(layout, nodes: list[dict]):
-    # Take first 9 nodes for the demo page
-    panels = [build_node_panel(n) for n in nodes[:9]]
 
-    # Fill remaining slots with empty panels to keep a strict 3x3 grid
-    while len(panels) < 9:
+def update_node_grid(layout, nodes: list[dict]):
+    cols = getattr(layout["nodes"], "_grid_cols", 3)
+    rows = getattr(layout["nodes"], "_grid_rows", 3)
+    capacity = cols * rows
+
+    panels = [build_node_panel(n) for n in nodes[:capacity]]
+    while len(panels) < capacity:
         panels.append(build_empty_node_panel())
 
     for idx, panel in enumerate(panels):
@@ -64,7 +67,7 @@ def build():
     """
     Build base layout structure.
     """
-    return build_layout()
+    return build_layout(GRID_PRESET)
 
 
 def initialize(layout):

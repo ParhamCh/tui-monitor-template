@@ -1,9 +1,16 @@
 from rich.layout import Layout
 
+_GRID_PRESETS = {
+    "2x2": (2, 2),
+    "3x2": (3, 2),
+    "3x3": (3, 3),
+}
 
-def build_layout():
+
+def build_layout(grid_preset: str = "3x3") -> Layout:
+    cols, rows = _GRID_PRESETS.get(grid_preset, (3, 3))
+
     layout = Layout(name="root")
-
     layout.split_column(
         Layout(name="header", size=3),
         Layout(name="summary", size=5),
@@ -12,18 +19,18 @@ def build_layout():
         Layout(name="footer", size=3),
     )
 
-    # Create a fixed 3x3 grid inside "nodes"
+    # build grid inside nodes
     layout["nodes"].split_column(
-        Layout(name="nodes_row_0", ratio=1),
-        Layout(name="nodes_row_1", ratio=1),
-        Layout(name="nodes_row_2", ratio=1),
+        *[Layout(name=f"nodes_row_{r}", ratio=1) for r in range(rows)]
     )
 
-    for r in range(3):
+    for r in range(rows):
         layout[f"nodes_row_{r}"].split_row(
-            Layout(name=f"node_{r*3+0}", ratio=1),
-            Layout(name=f"node_{r*3+1}", ratio=1),
-            Layout(name=f"node_{r*3+2}", ratio=1),
+            *[Layout(name=f"node_{r*cols+c}", ratio=1) for c in range(cols)]
         )
+
+    # store meta (helpful for updater)
+    layout["nodes"]._grid_cols = cols  # simple internal metadata
+    layout["nodes"]._grid_rows = rows
 
     return layout
