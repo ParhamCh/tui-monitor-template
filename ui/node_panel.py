@@ -1,9 +1,58 @@
 from rich.panel import Panel
-from rich.progress_bar import ProgressBar
 from rich.text import Text
-from rich.columns import Columns
-from rich.console import Group
+from rich.table import Table
 from rich.align import Align
+from rich.measure import Measurement
+from rich.console import Group, Console, ConsoleOptions, RenderResult
+
+class BlockBar:
+    """Expandable ████░░░░ bar that adapts to available width."""
+
+    def __init__(
+        self,
+        value: int,
+        *,
+        fill: str = "█",
+        empty: str = "░",
+        show_brackets: bool = True,
+        fill_style: str = "white",
+        empty_style: str = "grey50",
+        min_width: int = 6,
+    ):
+        self.value = max(0, min(100, int(value)))
+        self.fill = fill
+        self.empty = empty
+        self.show_brackets = show_brackets
+        self.fill_style = fill_style
+        self.empty_style = empty_style
+        self.min_width = min_width
+
+    def __rich_measure__(self, console: Console, options: ConsoleOptions) -> Measurement:
+        # Minimum width that still looks like a bar
+        min_w = self.min_width + (2 if self.show_brackets else 0)
+        return Measurement(min_w, options.max_width)
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        max_w = options.max_width or 0
+        bracket_w = 2 if self.show_brackets else 0
+        inner_w = max(1, max_w - bracket_w)
+
+        filled = int(round(inner_w * self.value / 100))
+        empty = max(0, inner_w - filled)
+
+        bar = Text()
+        if self.show_brackets:
+            bar.append("[", style="grey70")
+
+        if filled:
+            bar.append(self.fill * filled, style=self.fill_style)
+        if empty:
+            bar.append(self.empty * empty, style=self.empty_style)
+
+        if self.show_brackets:
+            bar.append("]", style="grey70")
+
+        yield bar
 
 
 def format_status(status: str) -> Text:
@@ -13,18 +62,29 @@ def format_status(status: str) -> Text:
 
 
 def metric_row(label: str, value: int):
-    bar = ProgressBar(total=100, completed=value)
-    percent = Text(f"{value:>3}%", style="bold")
+    grid = Table.grid(expand=True, padding=(0, 1))
+    grid.add_column(width=4)               # Label
+    grid.add_column(ratio=1)               # Bar (takes the rest)
+    grid.add_column(justify="right", width=4)  # Percent
 
-    # You can keep expand=True here because the Layout cell controls width.
-    return Columns(
-        [
-            Text(f"{label:<4}", style="cyan"),
-            bar,
-            Align.right(percent),
-        ],
-        expand=True,
+    grid.add_row(
+        Text(f"{label:<3}", style="cyan"),
+        BlockBar(value, show_brackets=False, fill_style="white", empty_style="grey35"),
+        Text(f"{value:>3}%", style="bold"),
     )
+    return grid
+
+
+def info_row(pods: int, latency_ms: int):
+    grid = Table.grid(expand=True, padding=(0, 1))
+    grid.add_column(ratio=1)
+    grid.add_column(justify="right")
+
+    grid.add_row(
+        Text(f"Pods: {pods}", style="yellow"),
+        Text(f"Lat: {latency_ms}ms", style="yellow"),
+    )
+    return grid
 
 
 def build_empty_node_panel(title: str = "Empty") -> Panel:
@@ -44,19 +104,14 @@ def build_node_panel(node: dict) -> Panel:
     title.append(" | ")
     title.append_text(format_status(node["status"]))
 
-    info_row = Columns(
-        [
-            Text(f"Pods: {node['pods']}", style="yellow"),
-            Align.right(Text(f"Lat: {node['latency_ms']}ms", style="yellow")),
-        ],
-        expand=True,
-    )
-
     content = Group(
         metric_row("CPU", node["cpu"]),
-        metric_row("MEM", node["memory"]),
+        Text(""),
+        metric_row("RAM", node["memory"]),
+        Text(""),
         metric_row("DSK", node["disk"]),
-        info_row,
+        Text(""),
+        info_row(node["pods"], node["latency_ms"]),
     )
 
     return Panel(
