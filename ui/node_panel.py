@@ -61,6 +61,15 @@ def format_status(status: str) -> Text:
     return Text(status, style="bold red")
 
 
+def severity_style(value: int) -> str:
+    value = max(0, min(100, int(value)))
+    if value >= 85:
+        return "bold red"
+    if value >= 60:
+        return "yellow"
+    return "green"
+
+
 def metric_row(label: str, value: int):
     grid = Table.grid(expand=True, padding=(0, 1))
     grid.add_column(width=4)               # Label
@@ -69,8 +78,13 @@ def metric_row(label: str, value: int):
 
     grid.add_row(
         Text(f"{label:<3}", style="cyan"),
-        BlockBar(value, show_brackets=False, fill_style="white", empty_style="grey35"),
-        Text(f"{value:>3}%", style="bold"),
+        BlockBar(
+            value,
+            show_brackets=False,
+            fill_style=severity_style(value),
+            empty_style="grey35",
+        ),
+        Text(f"{value:>3}%", style=severity_style(value)),
     )
     return grid
 
