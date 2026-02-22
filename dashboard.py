@@ -10,6 +10,8 @@ from data.fake_cluster import get_cluster_state
 from ui.components import build_cluster_summary
 from ui.node_panel import build_node_panel, build_empty_node_panel
 
+from collections import deque
+
 
 
 def update_node_grid(layout, nodes: list[dict]):
@@ -70,7 +72,7 @@ def build():
     return build_layout(GRID_PRESET)
 
 
-def initialize(layout):
+def initialize(layout, cpu_hist, mem_hist):
     """
     Fully initialize all layout sections before Live rendering.
     Prevents initial flicker caused by empty Layout sections.
@@ -81,7 +83,13 @@ def initialize(layout):
 
     cluster = get_cluster_state()
 
+    cpu_hist.append(cluster["summary"]["avg_cpu"])
+    mem_hist.append(cluster["summary"]["avg_memory"])
+    cluster["summary"]["cpu_trend"] = list(cpu_hist)
+    cluster["summary"]["mem_trend"] = list(mem_hist)
+
     layout["summary"].update(build_cluster_summary(cluster["summary"]))
+
     update_node_grid(layout, cluster["nodes"])
 
 
@@ -104,7 +112,7 @@ def format_uptime(start_time: float) -> str:
     return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
-def run(layout, start_time):
+def run(layout, start_time, cpu_hist, mem_hist):
     """
     Main live rendering loop.
     """
@@ -120,7 +128,14 @@ def run(layout, start_time):
 
             cluster = get_cluster_state()
 
+            cpu_hist.append(cluster["summary"]["avg_cpu"])
+            mem_hist.append(cluster["summary"]["avg_memory"])
+
+            cluster["summary"]["cpu_trend"] = list(cpu_hist)
+            cluster["summary"]["mem_trend"] = list(mem_hist)
+
             layout["summary"].update(build_cluster_summary(cluster["summary"]))
+
             update_node_grid(layout, cluster["nodes"])
 
             i += 1
@@ -136,11 +151,15 @@ def shutdown():
 
 def run_dashboard():
     layout = build()
-    initialize(layout)
 
     start_time = time.time()
 
+    cpu_hist = deque(maxlen=10)
+    mem_hist = deque(maxlen=10)
+
+    initialize(layout, cpu_hist, mem_hist)
+
     try:
-        run(layout, start_time)
+        run(layout, start_time, cpu_hist, mem_hist)
     except KeyboardInterrupt:
         shutdown()

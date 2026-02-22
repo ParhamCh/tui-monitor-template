@@ -4,6 +4,19 @@ from rich.text import Text
 from rich.columns import Columns
 
 
+def _spark(values: list[int]) -> Text:
+    blocks = "▁▂▃▄▅▆▇█"
+    if not values:
+        return Text("")
+
+    out = Text()
+    for v in values[-10:]:
+        v = max(0, min(100, int(v)))
+        idx = int(round((len(blocks) - 1) * v / 100))
+        out.append(blocks[idx], style="cyan")
+    return out
+
+
 def _health_badge(health: str) -> Text:
     styles = {
         "HEALTHY": "bold green",
@@ -73,6 +86,14 @@ def build_cluster_summary(summary: dict) -> Panel:
     grid.add_column(ratio=1)
     grid.add_column(justify="right")
     grid.add_row(left, right)
-    grid.add_row(resources, Text(""))
+    
+    cpu_trend = summary.get("cpu_trend", [])
+    mem_trend = summary.get("mem_trend", [])
 
+    trend = Text("CPU ", style="grey70")
+    trend.append_text(_spark(cpu_trend))
+    trend.append("  MEM ", style="grey70")
+    trend.append_text(_spark(mem_trend))
+    grid.add_row(resources, trend)
+    
     return Panel(grid, title="Cluster Summary", border_style="green")
