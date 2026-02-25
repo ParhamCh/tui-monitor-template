@@ -7,7 +7,7 @@ from rich.text import Text
 from config import GRID_PRESET
 from ui.layout import build_layout
 from data.fake_cluster import get_cluster_state
-from ui.components import build_cluster_summary
+from ui.components import build_cluster_summary, build_alerts_placeholder
 from ui.node_panel import build_node_panel, build_empty_node_panel
 
 from collections import deque
@@ -93,9 +93,7 @@ def initialize(layout, cpu_hist, mem_hist):
     update_node_grid(layout, cluster["nodes"])
 
 
-    layout["alerts"].update(
-        Panel(Text("Alerts Panel", justify="center"))
-    )
+    layout["alerts"].update(build_alerts_placeholder())
 
 
 
@@ -137,6 +135,8 @@ def run(layout, start_time, cpu_hist, mem_hist):
             layout["summary"].update(build_cluster_summary(cluster["summary"]))
 
             update_node_grid(layout, cluster["nodes"])
+
+            layout["alerts"].update(build_alerts_placeholder())
 
             i += 1
 

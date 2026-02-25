@@ -81,8 +81,15 @@ def build_cluster_summary(summary: dict) -> Panel:
 
     # --- two-column layout (fixed and clean) ---
     grid = Table.grid(expand=True)
-    grid.add_column(ratio=1, justify="center")                 # left
-    grid.add_column(ratio=1, justify="center") # right (wider)
+    grid.add_column(ratio=1, justify="center")
+    grid.add_column(ratio=1, justify="center")
     grid.add_row(left_block, right_block)
 
     return Panel(grid, title="Cluster Summary", border_style="green")
+
+
+def build_alerts_placeholder() -> Panel:
+    message = Text("Alerts panel is not implemented yet", style="yellow")
+    hint = Text("Coming soon", style="grey50")
+    content = Align.center(Text.assemble(message, "\n", hint), vertical="middle")
+    return Panel(content, title="Alerts", border_style="yellow")

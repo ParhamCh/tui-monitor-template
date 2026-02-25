@@ -14,8 +14,8 @@ def build_layout(grid_preset: str = "3x3") -> Layout:
     layout.split_column(
         Layout(name="header", size=3),
         Layout(name="summary", size=4),
-        Layout(name="nodes", ratio=6),
-        Layout(name="alerts", ratio=2),
+        Layout(name="nodes"),
+        Layout(name="alerts", size=6),
         Layout(name="footer", size=3),
     )
 
