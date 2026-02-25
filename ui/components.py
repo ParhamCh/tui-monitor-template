@@ -1,7 +1,8 @@
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.columns import Columns
+from rich.console import Group
+from rich.align import Align
 
 
 def _spark(values: list[int]) -> Text:
@@ -41,59 +42,47 @@ def _format_notready(names: list[str], limit: int = 2) -> Text:
 
 
 def build_cluster_summary(summary: dict) -> Panel:
-    health = summary.get("health", "HEALTHY")
+    # --- left (2 lines) ---
     total_nodes = summary["total_nodes"]
     ready_nodes = summary["ready_nodes"]
 
-    notready_names = summary.get("notready_names", [])
+    left_line1 = Text(f"Cluster Ready Nodes: {ready_nodes}/{total_nodes}", style="cyan")
 
-    alerts_total = summary.get("alerts_total", 0)
-    alerts_warn = summary.get("alerts_warn", 0)
-    alerts_crit = summary.get("alerts_crit", 0)
+    # Example service health (you can wire real ones later)
+    # If you already have alerts or health, you can base this on them.
+    prom_health = "Healthy"
+    prom_style = "green" if prom_health == "Healthy" else "yellow"
+    left_line2 = Text("Prometheus: ", style="grey70")
+    left_line2.append(prom_health, style=prom_style)
 
-    # line 1 (status)
-    left_items = [
-        _health_badge(health),
-        Text(f"Ready: {ready_nodes}/{total_nodes}", style="cyan"),
-        _format_notready(notready_names),
-    ]
-    left = Columns(left_items, expand=True)
+    left_block = Group(left_line1, left_line2)
 
-    right = Text(
-        f"Alerts: {alerts_total} (CRIT:{alerts_crit} WARN:{alerts_warn})",
-        style="magenta" if alerts_total else "green",
-    )
-
-    # line 2 (resources + capacity + max)
-    cpu = Text(
-        f"CPU avg {summary.get('avg_cpu', 0)}% | max {summary.get('max_cpu', 0)}% ({summary.get('max_cpu_node', '-')}) | "
-        f"{summary.get('used_cores', 0)}/{summary.get('total_cores', 0)} cores",
-        style="yellow",
-    )
-    mem = Text(
-        f"MEM avg {summary.get('avg_memory', 0)}% | max {summary.get('max_memory', 0)}% ({summary.get('max_memory_node', '-')}) | "
-        f"{summary.get('used_mem_gb', 0)}/{summary.get('total_mem_gb', 0)} GB",
-        style="yellow",
-    )
-    pods = Text(
-        f"Pods {summary.get('total_pods', 0)}/{summary.get('pods_capacity', 0)}",
-        style="cyan",
-    )
-
-    resources = Columns([cpu, mem, pods], expand=True)
-
-    grid = Table.grid(expand=True)
-    grid.add_column(ratio=1)
-    grid.add_column(justify="right")
-    grid.add_row(left, right)
-    
+    # --- right (2 lines) ---
+    # capacities
+    used_cores = summary.get("used_cores", 0)
+    total_cores = summary.get("total_cores", 0)
+    avg_cpu = summary.get("avg_cpu", 0)
     cpu_trend = summary.get("cpu_trend", [])
+
+    used_mem = summary.get("used_mem_gb", 0)
+    total_mem = summary.get("total_mem_gb", 0)
+    avg_mem = summary.get("avg_memory", 0)
     mem_trend = summary.get("mem_trend", [])
 
-    trend = Text("CPU ", style="grey70")
-    trend.append_text(_spark(cpu_trend))
-    trend.append("  MEM ", style="grey70")
-    trend.append_text(_spark(mem_trend))
-    grid.add_row(resources, trend)
-    
+    # line 1: CPU
+    right_line1 = Text(f"CPU: {used_cores}/{total_cores} cores | avg {avg_cpu}% ", style="yellow")
+    right_line1.append_text(_spark(cpu_trend))
+
+    # line 2: MEM
+    right_line2 = Text(f"MEM: {used_mem}/{total_mem} GB   | avg {avg_mem}% ", style="yellow")
+    right_line2.append_text(_spark(mem_trend))
+
+    right_block = Group(right_line1, right_line2)
+
+    # --- two-column layout (fixed and clean) ---
+    grid = Table.grid(expand=True)
+    grid.add_column(ratio=1, justify="center")                 # left
+    grid.add_column(ratio=1, justify="center") # right (wider)
+    grid.add_row(left_block, right_block)
+
     return Panel(grid, title="Cluster Summary", border_style="green")
