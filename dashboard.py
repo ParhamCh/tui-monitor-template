@@ -14,6 +14,18 @@ from ui.layout import build_layout
 from ui.node_panel import build_empty_node_panel, build_node_panel
 
 
+def create_context() -> dict:
+    """
+    Create runtime context for the dashboard.
+    Keeps run_dashboard() focused on lifecycle.
+    """
+    return {
+        "start_time": time.time(),
+        "cpu_hist": deque(maxlen=10),
+        "mem_hist": deque(maxlen=10),
+    }
+
+
 def update_node_grid(layout, nodes: list[dict]) -> None:
     cols = getattr(layout["nodes"], "_grid_cols", 3)
     rows = getattr(layout["nodes"], "_grid_rows", 3)
@@ -77,16 +89,18 @@ def build():
     return build_layout(GRID_PRESET)
 
 
-def initialize(layout, start_time: float, cpu_hist: deque, mem_hist: deque) -> None:
+def initialize(layout) -> dict:
     """
     Fully initialize all layout sections before Live rendering.
     Prevents initial flicker caused by empty Layout sections.
     """
+    ctx = create_context()
+
     layout["header"].update(render_header())
-    layout["footer"].update(render_footer(start_time))
+    layout["footer"].update(render_footer(ctx["start_time"]))
 
     cluster = get_cluster_state()
-    attach_trends_to_summary(cluster, cpu_hist, mem_hist)
+    attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
     layout["summary"].update(build_cluster_summary(cluster["summary"]))
     update_node_grid(layout, cluster["nodes"])
@@ -94,25 +108,27 @@ def initialize(layout, start_time: float, cpu_hist: deque, mem_hist: deque) -> N
     # Alerts intentionally not implemented yet (placeholder is explicit).
     layout["alerts"].update(build_alerts_placeholder())
 
+    return ctx
 
-def update_frame(layout, start_time: float, cpu_hist: deque, mem_hist: deque) -> None:
+
+def update_frame(layout, ctx: dict) -> None:
     """Update one UI frame."""
     layout["header"].update(render_header())
-    layout["footer"].update(render_footer(start_time))
+    layout["footer"].update(render_footer(ctx["start_time"]))
 
     cluster = get_cluster_state()
-    attach_trends_to_summary(cluster, cpu_hist, mem_hist)
+    attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
     layout["summary"].update(build_cluster_summary(cluster["summary"]))
     update_node_grid(layout, cluster["nodes"])
 
 
-def run(layout, start_time: float, cpu_hist: deque, mem_hist: deque) -> None:
+def run(layout, ctx: dict) -> None:
     """Main live rendering loop."""
     with Live(layout, refresh_per_second=2, screen=True, transient=True):
         while True:
             time.sleep(1)
-            update_frame(layout, start_time, cpu_hist, mem_hist)
+            update_frame(layout, ctx)
 
 
 def shutdown() -> None:
@@ -122,14 +138,9 @@ def shutdown() -> None:
 
 def run_dashboard() -> None:
     layout = build()
-
-    start_time = time.time()
-    cpu_hist = deque(maxlen=10)
-    mem_hist = deque(maxlen=10)
-
-    initialize(layout, start_time, cpu_hist, mem_hist)
+    ctx = initialize(layout)
 
     try:
-        run(layout, start_time, cpu_hist, mem_hist)
+        run(layout, ctx)
     except KeyboardInterrupt:
         shutdown()
