@@ -32,6 +32,26 @@ from ui.node_panel import build_empty_node_panel, build_node_panel
 
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+#: How often (in seconds) the dashboard state is refreshed.
+UPDATE_INTERVAL: float = 1.0
+
+#: Rich ``Live`` refresh rate derived from UPDATE_INTERVAL so the two stay
+#: in sync and never diverge silently.
+REFRESH_PER_SECOND: float = 1.0 / UPDATE_INTERVAL
+
+#: How many historical data-points to keep for sparkline trend charts.
+TREND_HISTORY_SIZE: int = 10
+
+#: Fallback grid dimensions used when the layout object carries no metadata.
+#: Should match the defaults defined in GRID_PRESET / build_layout().
+DEFAULT_GRID_COLS: int = 3
+DEFAULT_GRID_ROWS: int = 3
+
+
+# ---------------------------------------------------------------------------
 # Context helpers
 # ---------------------------------------------------------------------------
 
@@ -54,8 +74,8 @@ def create_context() -> dict:
     """
     return {
         "start_time": time.time(),
-        "cpu_hist": deque(maxlen=10),
-        "mem_hist": deque(maxlen=10),
+        "cpu_hist": deque(maxlen=TREND_HISTORY_SIZE),
+        "mem_hist": deque(maxlen=TREND_HISTORY_SIZE),
     }
 
 
@@ -81,11 +101,13 @@ def update_node_grid(layout, nodes: list[dict]) -> None:
         nodes:  List of node-state dictionaries returned by
                 :func:`data.fake_cluster.get_cluster_state`.
     """
-    cols = getattr(layout["nodes"], "_grid_cols", 3)
-    rows = getattr(layout["nodes"], "_grid_rows", 3)
-    capacity = cols * rows
+    cols: int = getattr(layout["nodes"], "_grid_cols", DEFAULT_GRID_COLS)
+    rows: int = getattr(layout["nodes"], "_grid_rows", DEFAULT_GRID_ROWS)
+    capacity: int = cols * rows
 
-    panels = [build_node_panel(n) for n in nodes[:capacity]]
+    panels = [build_node_panel(node) for node in nodes[:capacity]]
+
+    # Pad remaining cells with empty placeholder panels.
     while len(panels) < capacity:
         panels.append(build_empty_node_panel())
 
@@ -114,7 +136,7 @@ def attach_trends_to_summary(
         cpu_hist: Mutable deque used as a rolling CPU sample buffer.
         mem_hist: Mutable deque used as a rolling memory sample buffer.
     """
-    summary = cluster["summary"]
+    summary: dict = cluster["summary"]
 
     cpu_hist.append(summary["avg_cpu"])
     mem_hist.append(summary["avg_memory"])
@@ -270,9 +292,9 @@ def run(layout, ctx: dict) -> None:
         KeyboardInterrupt: Propagated to the caller (:func:`run_dashboard`)
                            so shutdown logic can be executed there.
     """
-    with Live(layout, refresh_per_second=1, screen=True, transient=True):
+    with Live(layout, refresh_per_second=REFRESH_PER_SECOND, screen=True, transient=True):
         while True:
-            time.sleep(1)
+            time.sleep(UPDATE_INTERVAL)
             update_frame(layout, ctx)
 
 
