@@ -27,6 +27,23 @@ def update_node_grid(layout, nodes: list[dict]):
         layout[f"node_{idx}"].update(panel)
 
 
+def attach_trends_to_summary(cluster: dict, cpu_hist, mem_hist) -> dict:
+    """
+    Update CPU/MEM history buffers and attach trend arrays to cluster summary.
+
+    This keeps the main loop clean and centralizes trend behavior.
+    """
+    summary = cluster["summary"]
+
+    cpu_hist.append(summary["avg_cpu"])
+    mem_hist.append(summary["avg_memory"])
+
+    summary["cpu_trend"] = list(cpu_hist)
+    summary["mem_trend"] = list(mem_hist)
+
+    return cluster
+
+
 def render_header() -> Panel:
     """
     Render header with structured two-column layout:
@@ -82,11 +99,7 @@ def initialize(layout, cpu_hist, mem_hist):
     layout["footer"].update(render_footer(time.time()))
 
     cluster = get_cluster_state()
-
-    cpu_hist.append(cluster["summary"]["avg_cpu"])
-    mem_hist.append(cluster["summary"]["avg_memory"])
-    cluster["summary"]["cpu_trend"] = list(cpu_hist)
-    cluster["summary"]["mem_trend"] = list(mem_hist)
+    attach_trends_to_summary(cluster, cpu_hist, mem_hist)
 
     layout["summary"].update(build_cluster_summary(cluster["summary"]))
 
@@ -114,9 +127,6 @@ def run(layout, start_time, cpu_hist, mem_hist):
     """
     Main live rendering loop.
     """
-
-    i = 0
-
     with Live(layout, refresh_per_second=2, screen=True, transient=True):
         while True:
             time.sleep(1)
@@ -125,20 +135,10 @@ def run(layout, start_time, cpu_hist, mem_hist):
             layout["footer"].update(render_footer(start_time))
 
             cluster = get_cluster_state()
-
-            cpu_hist.append(cluster["summary"]["avg_cpu"])
-            mem_hist.append(cluster["summary"]["avg_memory"])
-
-            cluster["summary"]["cpu_trend"] = list(cpu_hist)
-            cluster["summary"]["mem_trend"] = list(mem_hist)
+            attach_trends_to_summary(cluster, cpu_hist, mem_hist)
 
             layout["summary"].update(build_cluster_summary(cluster["summary"]))
-
             update_node_grid(layout, cluster["nodes"])
-
-            layout["alerts"].update(build_alerts_placeholder())
-
-            i += 1
 
 
 def shutdown():
