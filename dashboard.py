@@ -26,6 +26,7 @@ from rich.text import Text
 
 from config import GRID_PRESET
 from data.fake_cluster import get_cluster_state
+from terminal_input import TerminalKeyReader
 from ui.pages import build_nodes_page, build_placeholder_page
 from ui.sidebar import build_sidebar
 from ui.layout import build_layout
@@ -343,23 +344,40 @@ def update_frame(layout, ctx: dict) -> None:
 def run(layout, ctx: dict) -> None:
     """Start the blocking Live render loop.
 
-    Renders *layout* at :data:`REFRESH_PER_SECOND` and calls
-    :func:`update_frame` every :data:`UPDATE_INTERVAL` seconds.
-    Both constants are derived from a single value to guarantee they stay
-    in sync.
+    The loop waits for either:
+        - the next periodic dashboard refresh deadline, or
+        - a keyboard key press detected by :class:`terminal_input.TerminalKeyReader`
+
+    At this stage, detected keys are intentionally ignored. The sole purpose
+    of this step is to introduce safe, non-blocking input infrastructure
+    before wiring keys to navigation state in the next development phase.
 
     Args:
-        layout: The fully-initialised Rich ``Layout``.
-        ctx:    The runtime context dictionary.
+        layout: The fully-initialized Rich ``Layout``.
+        ctx: The runtime context dictionary.
 
     Raises:
         KeyboardInterrupt: Propagated to the caller (:func:`run_dashboard`)
-                           so shutdown logic can be executed there.
+            so shutdown logic can be executed there.
     """
-    with Live(layout, refresh_per_second=REFRESH_PER_SECOND, screen=True, transient=True):
+    next_update_at = time.monotonic()
+
+    with TerminalKeyReader() as key_reader, Live(
+        layout,
+        refresh_per_second=REFRESH_PER_SECOND,
+        screen=True,
+        transient=True,
+    ):
         while True:
-            time.sleep(UPDATE_INTERVAL)
-            update_frame(layout, ctx)
+            timeout = max(0.0, next_update_at - time.monotonic())
+
+            # Read one key if available, but do not act on it yet.
+            _ = key_reader.read_key(timeout=timeout)
+
+            now = time.monotonic()
+            if now >= next_update_at:
+                update_frame(layout, ctx)
+                next_update_at = now + UPDATE_INTERVAL
 
 
 def shutdown() -> None:
