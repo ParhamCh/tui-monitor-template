@@ -12,18 +12,13 @@ High-level structure::
     ├── main
     │   ├── sidebar
     │   └── content
-    │       ├── summary
-    │       ├── nodes
-    │       └── alerts
     └── footer
 
-The nodes section supports a limited set of predefined grid presets:
-    - 2x2
-    - 3x2
-    - 3x3
+The content area acts as a single page-rendering slot. Individual page
+builders are responsible for rendering their full internal structure.
 
-The selected preset determines how many node cells are created and how
-``dashboard.py`` later populates them with node panels or empty placeholders.
+The selected grid preset is still stored as metadata on the content area so
+page builders can render node pages with the correct grid dimensions.
 """
 
 from rich.layout import Layout
@@ -52,10 +47,6 @@ FOOTER_HEIGHT: int = 3
 SIDEBAR_RATIO: int = 1
 CONTENT_RATIO: int = 4
 
-#: Content vertical section sizes.
-SUMMARY_HEIGHT: int = 4
-ALERTS_HEIGHT: int = 6
-
 
 # ---------------------------------------------------------------------------
 # Layout builder
@@ -64,13 +55,6 @@ ALERTS_HEIGHT: int = 6
 
 def build_layout(grid_preset: str = "3x3") -> Layout:
     """Build and return the dashboard layout for the selected grid preset.
-
-    The resulting layout contains a sidebar/content split inside the main
-    section, while the node area inside content is further subdivided into
-    a fixed grid determined by the selected preset.
-
-    Grid metadata is attached to ``layout["nodes"]`` so downstream update
-    helpers can calculate the available node-cell capacity.
 
     Args:
         grid_preset: Grid preset identifier such as ``"2x2"``, ``"3x2"``,
@@ -96,27 +80,8 @@ def build_layout(grid_preset: str = "3x3") -> Layout:
         Layout(name="content", ratio=CONTENT_RATIO),
     )
 
-    layout["content"].split_column(
-        Layout(name="summary", size=SUMMARY_HEIGHT),
-        Layout(name="nodes"),
-        Layout(name="alerts", size=ALERTS_HEIGHT),
-    )
-
-    # Build the fixed node grid inside the content area.
-    layout["nodes"].split_column(
-        *[Layout(name=f"nodes_row_{row}", ratio=1) for row in range(rows)]
-    )
-
-    for row in range(rows):
-        layout[f"nodes_row_{row}"].split_row(
-            *[
-                Layout(name=f"node_{row * cols + col}", ratio=1)
-                for col in range(cols)
-            ]
-        )
-
-    # Store grid dimensions as metadata for downstream update helpers.
-    layout["nodes"]._grid_cols = cols
-    layout["nodes"]._grid_rows = rows
+    # Store grid dimensions as metadata for page builders that need them.
+    layout["content"]._grid_cols = cols
+    layout["content"]._grid_rows = rows
 
     return layout

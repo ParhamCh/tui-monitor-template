@@ -26,10 +26,9 @@ from rich.text import Text
 
 from config import GRID_PRESET
 from data.fake_cluster import get_cluster_state
+from ui.pages import build_nodes_page, build_placeholder_page
 from ui.sidebar import build_sidebar
-from ui.components import build_alerts_placeholder, build_cluster_summary
 from ui.layout import build_layout
-from ui.node_panel import build_empty_node_panel, build_node_panel
 
 
 # ---------------------------------------------------------------------------
@@ -100,35 +99,35 @@ def create_context() -> dict:
 # ---------------------------------------------------------------------------
 
 
-def update_node_grid(layout, nodes: list[dict]) -> None:
-    """Populate the node grid section of the layout with live node data.
+# def update_node_grid(layout, nodes: list[dict]) -> None:
+#     """Populate the node grid section of the layout with live node data.
 
-    The grid dimensions are read from metadata attributes set by
-    :func:`ui.layout.build_layout`.  If those attributes are absent the
-    module-level defaults :data:`DEFAULT_GRID_COLS` / :data:`DEFAULT_GRID_ROWS`
-    are used as a fallback.
+#     The grid dimensions are read from metadata attributes set by
+#     :func:`ui.layout.build_layout`.  If those attributes are absent the
+#     module-level defaults :data:`DEFAULT_GRID_COLS` / :data:`DEFAULT_GRID_ROWS`
+#     are used as a fallback.
 
-    Nodes that exceed the grid capacity are silently dropped; a warning is
-    logged so operators can detect mismatches between cluster size and
-    configured grid preset.
+#     Nodes that exceed the grid capacity are silently dropped; a warning is
+#     logged so operators can detect mismatches between cluster size and
+#     configured grid preset.
 
-    Args:
-        layout: The Rich ``Layout`` object that owns all named sections.
-        nodes:  List of node-state dictionaries returned by
-                :func:`data.fake_cluster.get_cluster_state`.
-    """
-    cols: int = getattr(layout["nodes"], "_grid_cols", DEFAULT_GRID_COLS)
-    rows: int = getattr(layout["nodes"], "_grid_rows", DEFAULT_GRID_ROWS)
-    capacity: int = cols * rows
+#     Args:
+#         layout: The Rich ``Layout`` object that owns all named sections.
+#         nodes:  List of node-state dictionaries returned by
+#                 :func:`data.fake_cluster.get_cluster_state`.
+#     """
+#     cols: int = getattr(layout["nodes"], "_grid_cols", DEFAULT_GRID_COLS)
+#     rows: int = getattr(layout["nodes"], "_grid_rows", DEFAULT_GRID_ROWS)
+#     capacity: int = cols * rows
 
-    panels = [build_node_panel(node) for node in nodes[:capacity]]
+#     panels = [build_node_panel(node) for node in nodes[:capacity]]
 
-    # Pad remaining cells with empty placeholder panels.
-    while len(panels) < capacity:
-        panels.append(build_empty_node_panel())
+#     # Pad remaining cells with empty placeholder panels.
+#     while len(panels) < capacity:
+#         panels.append(build_empty_node_panel())
 
-    for idx, panel in enumerate(panels):
-        layout[f"node_{idx}"].update(panel)
+#     for idx, panel in enumerate(panels):
+#         layout[f"node_{idx}"].update(panel)
 
 
 def attach_trends_to_summary(
@@ -172,6 +171,48 @@ def update_sidebar(layout, ctx: dict) -> None:
     """
     layout["sidebar"].update(
         build_sidebar(MENU_ITEMS, ctx["current_view"])
+    )
+
+
+def resolve_view_label(view_id: str) -> str:
+    """Resolve a human-readable label for a given view identifier.
+
+    Args:
+        view_id: Internal identifier of the current view.
+
+    Returns:
+        The display label associated with the view, or a title-cased fallback
+        derived from the view identifier.
+    """
+    for _, item_view_id, label in MENU_ITEMS:
+        if item_view_id == view_id:
+            return label
+    return view_id.replace("_", " ").title()
+
+
+def build_content_view(layout, ctx: dict, cluster: dict):
+    """Build the current content page based on navigation state.
+
+    Args:
+        layout: The active Rich layout tree.
+        ctx: Runtime context dictionary.
+        cluster: Current cluster-state dictionary.
+
+    Returns:
+        A Rich renderable representing the currently selected page.
+    """
+    current_view = ctx["current_view"]
+
+    grid_cols = getattr(layout["content"], "_grid_cols", DEFAULT_GRID_COLS)
+    grid_rows = getattr(layout["content"], "_grid_rows", DEFAULT_GRID_ROWS)
+
+    if current_view == "nodes":
+        return build_nodes_page(cluster, grid_cols, grid_rows)
+
+    view_label = resolve_view_label(current_view)
+    return build_placeholder_page(
+        title=view_label,
+        message=f"{view_label} page is not implemented yet.",
     )
 
 
@@ -270,17 +311,12 @@ def initialize(layout) -> dict:
 
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(ctx["start_time"]))
-
     update_sidebar(layout, ctx)
 
     cluster = get_cluster_state()
     attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
-    layout["summary"].update(build_cluster_summary(cluster["summary"]))
-    update_node_grid(layout, cluster["nodes"])
-
-    # Alerts are intentionally not implemented yet.
-    layout["alerts"].update(build_alerts_placeholder())
+    layout["content"].update(build_content_view(layout, ctx, cluster))
 
     return ctx
 
@@ -289,8 +325,6 @@ def update_frame(layout, ctx: dict) -> None:
     """Fetch fresh data and redraw all dynamic layout sections.
 
     Called once per :data:`UPDATE_INTERVAL` inside the main render loop.
-    Static sections (e.g. alerts placeholder) are intentionally excluded to
-    avoid unnecessary redraws.
 
     Args:
         layout: The active Rich ``Layout`` being rendered by ``Live``.
@@ -303,8 +337,7 @@ def update_frame(layout, ctx: dict) -> None:
     cluster = get_cluster_state()
     attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
-    layout["summary"].update(build_cluster_summary(cluster["summary"]))
-    update_node_grid(layout, cluster["nodes"])
+    layout["content"].update(build_content_view(layout, ctx, cluster))
 
 
 def run(layout, ctx: dict) -> None:
