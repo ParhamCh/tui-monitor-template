@@ -50,6 +50,19 @@ TREND_HISTORY_SIZE: int = 10
 DEFAULT_GRID_COLS: int = 3
 DEFAULT_GRID_ROWS: int = 3
 
+#: Default initial view shown in the main content area.
+DEFAULT_VIEW: str = "nodes"
+
+#: Static sidebar menu definition.
+#: Each item is defined as: (shortcut_key, view_id, label)
+MENU_ITEMS: tuple[tuple[str, str, str], ...] = (
+    ("1", "prometheus", "Prometheus"),
+    ("2", "nodes", "Nodes"),
+    ("3", "cluster", "Cluster"),
+    ("4", "gateway", "Gateway"),
+    ("5", "app", "App"),
+)
+
 
 # ---------------------------------------------------------------------------
 # Context helpers
@@ -71,11 +84,13 @@ def create_context() -> dict:
           samples, capped at :data:`TREND_HISTORY_SIZE` entries.
         - ``mem_hist`` (*deque[float]*): Rolling window of average-memory
           samples, capped at :data:`TREND_HISTORY_SIZE` entries.
+        - ``current_view`` (*str*): Identifier of the currently active content page.
     """
     return {
         "start_time": time.time(),
         "cpu_hist": deque(maxlen=TREND_HISTORY_SIZE),
         "mem_hist": deque(maxlen=TREND_HISTORY_SIZE),
+        "current_view": DEFAULT_VIEW,
     }
 
 
