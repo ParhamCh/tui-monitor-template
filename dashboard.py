@@ -223,6 +223,26 @@ def render_footer(start_time: float) -> Panel:
     return Panel(content, border_style="grey50")
 
 
+def render_sidebar_placeholder() -> Panel:
+    """Build a temporary placeholder panel for the future navigation sidebar.
+
+    This placeholder makes the sidebar area visible during the intermediate
+    migration stage, before the real navigation menu and page switching logic
+    are implemented.
+
+    Returns:
+        A Rich ``Panel`` containing a centered placeholder message.
+    """
+    return Panel(
+        Align.center(
+            Text("Sidebar placeholder", style="grey70"),
+            vertical="middle",
+        ),
+        title="Navigation",
+        border_style="blue",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Dashboard lifecycle
 # ---------------------------------------------------------------------------
@@ -258,13 +278,17 @@ def initialize(layout) -> dict:
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(ctx["start_time"]))
 
+    # The navigation sidebar is not implemented yet, so a temporary
+    # placeholder panel is rendered during this migration stage.
+    layout["sidebar"].update(render_sidebar_placeholder())
+
     cluster = get_cluster_state()
     attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
     layout["summary"].update(build_cluster_summary(cluster["summary"]))
     update_node_grid(layout, cluster["nodes"])
 
-    # Alerts intentionally not implemented yet (placeholder is explicit).
+    # Alerts are intentionally not implemented yet.
     layout["alerts"].update(build_alerts_placeholder())
 
     return ctx
