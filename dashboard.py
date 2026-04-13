@@ -26,6 +26,7 @@ from rich.text import Text
 
 from config import GRID_PRESET
 from data.fake_cluster import get_cluster_state
+from ui.sidebar import build_sidebar
 from ui.components import build_alerts_placeholder, build_cluster_summary
 from ui.layout import build_layout
 from ui.node_panel import build_empty_node_panel, build_node_panel
@@ -162,6 +163,18 @@ def attach_trends_to_summary(
     summary["mem_trend"] = list(mem_hist)
 
 
+def update_sidebar(layout, ctx: dict) -> None:
+    """Render the navigation sidebar for the currently active view.
+
+    Args:
+        layout: The active Rich ``Layout`` tree.
+        ctx: Runtime context dictionary containing navigation state.
+    """
+    layout["sidebar"].update(
+        build_sidebar(MENU_ITEMS, ctx["current_view"])
+    )
+
+
 # ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
@@ -223,26 +236,6 @@ def render_footer(start_time: float) -> Panel:
     return Panel(content, border_style="grey50")
 
 
-def render_sidebar_placeholder() -> Panel:
-    """Build a temporary placeholder panel for the future navigation sidebar.
-
-    This placeholder makes the sidebar area visible during the intermediate
-    migration stage, before the real navigation menu and page switching logic
-    are implemented.
-
-    Returns:
-        A Rich ``Panel`` containing a centered placeholder message.
-    """
-    return Panel(
-        Align.center(
-            Text("Sidebar placeholder", style="grey70"),
-            vertical="middle",
-        ),
-        title="Navigation",
-        border_style="blue",
-    )
-
-
 # ---------------------------------------------------------------------------
 # Dashboard lifecycle
 # ---------------------------------------------------------------------------
@@ -278,9 +271,7 @@ def initialize(layout) -> dict:
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(ctx["start_time"]))
 
-    # The navigation sidebar is not implemented yet, so a temporary
-    # placeholder panel is rendered during this migration stage.
-    layout["sidebar"].update(render_sidebar_placeholder())
+    update_sidebar(layout, ctx)
 
     cluster = get_cluster_state()
     attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
@@ -303,10 +294,11 @@ def update_frame(layout, ctx: dict) -> None:
 
     Args:
         layout: The active Rich ``Layout`` being rendered by ``Live``.
-        ctx:    The runtime context dictionary produced by :func:`create_context`.
+        ctx: The runtime context dictionary produced by :func:`create_context`.
     """
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(ctx["start_time"]))
+    update_sidebar(layout, ctx)
 
     cluster = get_cluster_state()
     attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
