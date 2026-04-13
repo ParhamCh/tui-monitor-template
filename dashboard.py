@@ -100,37 +100,6 @@ def create_context() -> dict:
 # ---------------------------------------------------------------------------
 
 
-# def update_node_grid(layout, nodes: list[dict]) -> None:
-#     """Populate the node grid section of the layout with live node data.
-
-#     The grid dimensions are read from metadata attributes set by
-#     :func:`ui.layout.build_layout`.  If those attributes are absent the
-#     module-level defaults :data:`DEFAULT_GRID_COLS` / :data:`DEFAULT_GRID_ROWS`
-#     are used as a fallback.
-
-#     Nodes that exceed the grid capacity are silently dropped; a warning is
-#     logged so operators can detect mismatches between cluster size and
-#     configured grid preset.
-
-#     Args:
-#         layout: The Rich ``Layout`` object that owns all named sections.
-#         nodes:  List of node-state dictionaries returned by
-#                 :func:`data.fake_cluster.get_cluster_state`.
-#     """
-#     cols: int = getattr(layout["nodes"], "_grid_cols", DEFAULT_GRID_COLS)
-#     rows: int = getattr(layout["nodes"], "_grid_rows", DEFAULT_GRID_ROWS)
-#     capacity: int = cols * rows
-
-#     panels = [build_node_panel(node) for node in nodes[:capacity]]
-
-#     # Pad remaining cells with empty placeholder panels.
-#     while len(panels) < capacity:
-#         panels.append(build_empty_node_panel())
-
-#     for idx, panel in enumerate(panels):
-#         layout[f"node_{idx}"].update(panel)
-
-
 def attach_trends_to_summary(
     cluster: dict,
     cpu_hist: deque,
@@ -215,6 +184,46 @@ def build_content_view(layout, ctx: dict, cluster: dict):
         title=view_label,
         message=f"{view_label} page is not implemented yet.",
     )
+
+
+def resolve_view_from_key(key: str) -> str | None:
+    """Resolve a target view identifier from a pressed shortcut key.
+
+    Args:
+        key: Single-character keyboard input.
+
+    Returns:
+        The matching view identifier if the key exists in ``MENU_ITEMS``,
+        otherwise ``None``.
+    """
+    for shortcut, view_id, _label in MENU_ITEMS:
+        if shortcut == key:
+            return view_id
+    return None
+
+
+def apply_navigation_input(ctx: dict, key: str) -> bool:
+    """Apply one navigation key to the runtime context.
+
+    This function is intentionally limited to state mutation only. It does not
+    perform any rendering by itself.
+
+    Args:
+        ctx: Runtime context dictionary.
+        key: Single-character keyboard input.
+
+    Returns:
+        ``True`` if the active view changed, otherwise ``False``.
+    """
+    target_view = resolve_view_from_key(key)
+    if target_view is None:
+        return False
+
+    if target_view == ctx["current_view"]:
+        return False
+
+    ctx["current_view"] = target_view
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -344,13 +353,12 @@ def update_frame(layout, ctx: dict) -> None:
 def run(layout, ctx: dict) -> None:
     """Start the blocking Live render loop.
 
-    The loop waits for either:
-        - the next periodic dashboard refresh deadline, or
-        - a keyboard key press detected by :class:`terminal_input.TerminalKeyReader`
+    The loop reacts to two kinds of events:
+        - periodic refresh deadlines
+        - numeric navigation key presses
 
-    At this stage, detected keys are intentionally ignored. The sole purpose
-    of this step is to introduce safe, non-blocking input infrastructure
-    before wiring keys to navigation state in the next development phase.
+    At this stage, only simple menu switching is supported. Valid shortcut
+    keys are defined centrally in ``MENU_ITEMS``.
 
     Args:
         layout: The fully-initialized Rich ``Layout``.
@@ -360,7 +368,7 @@ def run(layout, ctx: dict) -> None:
         KeyboardInterrupt: Propagated to the caller (:func:`run_dashboard`)
             so shutdown logic can be executed there.
     """
-    next_update_at = time.monotonic()
+    next_update_at = time.monotonic() + UPDATE_INTERVAL
 
     with TerminalKeyReader() as key_reader, Live(
         layout,
@@ -370,9 +378,12 @@ def run(layout, ctx: dict) -> None:
     ):
         while True:
             timeout = max(0.0, next_update_at - time.monotonic())
+            key = key_reader.read_key(timeout=timeout)
 
-            # Read one key if available, but do not act on it yet.
-            _ = key_reader.read_key(timeout=timeout)
+            if key is not None and apply_navigation_input(ctx, key):
+                update_frame(layout, ctx)
+                next_update_at = time.monotonic() + UPDATE_INTERVAL
+                continue
 
             now = time.monotonic()
             if now >= next_update_at:
