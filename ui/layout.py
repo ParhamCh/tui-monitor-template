@@ -14,11 +14,8 @@ High-level structure::
     │   └── content
     └── footer
 
-The content area acts as a single page-rendering slot. Individual page
-builders are responsible for rendering their full internal structure.
-
-The selected grid preset is still stored as metadata on the content area so
-page builders can render node pages with the correct grid dimensions.
+The content area is a single page-rendering slot. Individual page builders
+are responsible for rendering their own internal layout and page structure.
 """
 
 from rich.layout import Layout
@@ -27,17 +24,6 @@ from rich.layout import Layout
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-#: Supported node-grid presets in the format "cols x rows".
-_GRID_PRESETS: dict[str, tuple[int, int]] = {
-    "2x2": (2, 2),
-    "3x2": (3, 2),
-    "3x3": (3, 3),
-}
-
-#: Default preset dimensions used when an invalid preset is provided.
-DEFAULT_GRID_COLS: int = 3
-DEFAULT_GRID_ROWS: int = 3
 
 #: Static layout section sizes.
 HEADER_HEIGHT: int = 3
@@ -53,21 +39,13 @@ CONTENT_RATIO: int = 4
 # ---------------------------------------------------------------------------
 
 
-def build_layout(grid_preset: str = "3x3") -> Layout:
-    """Build and return the dashboard layout for the selected grid preset.
-
-    Args:
-        grid_preset: Grid preset identifier such as ``"2x2"``, ``"3x2"``,
-            or ``"3x3"``.
+def build_layout() -> Layout:
+    """Build and return the top-level dashboard shell layout.
 
     Returns:
-        A fully constructed Rich ``Layout`` tree.
+        A fully constructed Rich ``Layout`` tree containing the application
+        shell with header, sidebar, content area, and footer.
     """
-    cols, rows = _GRID_PRESETS.get(
-        grid_preset,
-        (DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS),
-    )
-
     layout = Layout(name="root")
     layout.split_column(
         Layout(name="header", size=HEADER_HEIGHT),
@@ -79,9 +57,5 @@ def build_layout(grid_preset: str = "3x3") -> Layout:
         Layout(name="sidebar", ratio=SIDEBAR_RATIO),
         Layout(name="content", ratio=CONTENT_RATIO),
     )
-
-    # Store grid dimensions as metadata for page builders that need them.
-    layout["content"]._grid_cols = cols
-    layout["content"]._grid_rows = rows
 
     return layout

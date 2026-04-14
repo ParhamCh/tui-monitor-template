@@ -23,7 +23,6 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
-from config import GRID_PRESET
 from data.fake_cluster import get_cluster_state
 from terminal_input import TerminalKeyReader
 from ui.pages import build_content_page
@@ -41,11 +40,6 @@ UPDATE_INTERVAL: float = 1.0
 #: Rich ``Live`` refresh rate derived from UPDATE_INTERVAL so the two stay
 #: in sync and never diverge silently.
 REFRESH_PER_SECOND: float = 1.0 / UPDATE_INTERVAL
-
-#: Fallback grid dimensions used when the layout object carries no metadata.
-#: Should match the defaults defined in GRID_PRESET / build_layout().
-DEFAULT_GRID_COLS: int = 3
-DEFAULT_GRID_ROWS: int = 3
 
 #: Default initial view shown in the main content area.
 DEFAULT_VIEW: str = "nodes"
@@ -214,10 +208,9 @@ def build():
     tree can be constructed without triggering any I/O or data fetches.
 
     Returns:
-        A Rich ``Layout`` instance pre-configured with the preset defined in
-        :data:`config.GRID_PRESET`.
+        A Rich ``Layout`` instance representing the top-level dashboard shell.
     """
-    return build_layout(GRID_PRESET)
+    return build_layout()
 
 
 def initialize(layout) -> dict:
@@ -240,15 +233,10 @@ def initialize(layout) -> dict:
 
     cluster = get_cluster_state()
 
-    grid_cols = getattr(layout["content"], "_grid_cols", DEFAULT_GRID_COLS)
-    grid_rows = getattr(layout["content"], "_grid_rows", DEFAULT_GRID_ROWS)
-
     layout["content"].update(
         build_content_page(
             ctx["current_view"],
             cluster,
-            grid_cols,
-            grid_rows,
         )
     )
 
@@ -270,15 +258,10 @@ def update_frame(layout, ctx: dict) -> None:
 
     cluster = get_cluster_state()
 
-    grid_cols = getattr(layout["content"], "_grid_cols", DEFAULT_GRID_COLS)
-    grid_rows = getattr(layout["content"], "_grid_rows", DEFAULT_GRID_ROWS)
-
     layout["content"].update(
         build_content_page(
             ctx["current_view"],
             cluster,
-            grid_cols,
-            grid_rows,
         )
     )
 
