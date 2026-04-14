@@ -16,7 +16,6 @@ Typical usage::
 """
 
 import time
-from collections import deque
 
 from rich.align import Align
 from rich.columns import Columns
@@ -42,9 +41,6 @@ UPDATE_INTERVAL: float = 1.0
 #: Rich ``Live`` refresh rate derived from UPDATE_INTERVAL so the two stay
 #: in sync and never diverge silently.
 REFRESH_PER_SECOND: float = 1.0 / UPDATE_INTERVAL
-
-#: How many historical data-points to keep for sparkline trend charts.
-TREND_HISTORY_SIZE: int = 10
 
 #: Fallback grid dimensions used when the layout object carries no metadata.
 #: Should match the defaults defined in GRID_PRESET / build_layout().
@@ -79,18 +75,11 @@ def create_context() -> dict:
     Returns:
         A dictionary with the following keys:
 
-        - ``start_time`` (*float*): ``time.time()`` at dashboard launch,
-          used to compute uptime.
-        - ``cpu_hist`` (*deque[float]*): Rolling window of average-CPU
-          samples, capped at :data:`TREND_HISTORY_SIZE` entries.
-        - ``mem_hist`` (*deque[float]*): Rolling window of average-memory
-          samples, capped at :data:`TREND_HISTORY_SIZE` entries.
+        - ``start_time`` (*float*): ``time.time()`` at dashboard launch, used to compute uptime.
         - ``current_view`` (*str*): Identifier of the currently active content page.
     """
     return {
         "start_time": time.time(),
-        "cpu_hist": deque(maxlen=TREND_HISTORY_SIZE),
-        "mem_hist": deque(maxlen=TREND_HISTORY_SIZE),
         "current_view": DEFAULT_VIEW,
     }
 
@@ -98,38 +87,6 @@ def create_context() -> dict:
 # ---------------------------------------------------------------------------
 # Layout update helpers
 # ---------------------------------------------------------------------------
-
-
-def attach_trends_to_summary(
-    cluster: dict,
-    cpu_hist: deque,
-    mem_hist: deque
-) -> None:
-    """Append the latest CPU/memory samples and attach trend lists to *cluster*.
-
-    Mutates ``cluster["summary"]`` in-place by adding two keys:
-    ``cpu_trend`` and ``mem_trend``, each a plain :class:`list` snapshot of
-    the corresponding rolling-window deque.
-
-    Keeping this logic here (rather than inline in the update loop) means the
-    main loop stays thin and the trend behaviour is easy to unit-test in
-    isolation.
-
-    Args:
-        cluster:  Cluster-state dictionary as returned by
-                  :func:`data.fake_cluster.get_cluster_state`.
-        cpu_hist: Mutable deque used as a rolling CPU sample buffer.
-        mem_hist: Mutable deque used as a rolling memory sample buffer.
-    """
-    summary: dict = cluster["summary"]
-
-    cpu_hist.append(summary["avg_cpu"])
-    mem_hist.append(summary["avg_memory"])
-
-    # Expose immutable snapshots so downstream code cannot accidentally
-    # mutate the live buffers.
-    summary["cpu_trend"] = list(cpu_hist)
-    summary["mem_trend"] = list(mem_hist)
 
 
 def update_sidebar(layout, ctx: dict) -> None:
@@ -282,7 +239,6 @@ def initialize(layout) -> dict:
     update_sidebar(layout, ctx)
 
     cluster = get_cluster_state()
-    attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
     grid_cols = getattr(layout["content"], "_grid_cols", DEFAULT_GRID_COLS)
     grid_rows = getattr(layout["content"], "_grid_rows", DEFAULT_GRID_ROWS)
@@ -313,7 +269,6 @@ def update_frame(layout, ctx: dict) -> None:
     update_sidebar(layout, ctx)
 
     cluster = get_cluster_state()
-    attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
     grid_cols = getattr(layout["content"], "_grid_cols", DEFAULT_GRID_COLS)
     grid_rows = getattr(layout["content"], "_grid_rows", DEFAULT_GRID_ROWS)
