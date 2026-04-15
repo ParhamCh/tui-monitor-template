@@ -16,7 +16,6 @@ Typical usage::
 """
 
 import time
-from collections import deque
 
 from rich.align import Align
 from rich.columns import Columns
@@ -24,11 +23,11 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
-from config import GRID_PRESET
 from data.fake_cluster import get_cluster_state
-from ui.components import build_alerts_placeholder, build_cluster_summary
+from terminal_input import TerminalKeyReader
+from ui.pages import build_content_page
+from ui.sidebar import build_sidebar
 from ui.layout import build_layout
-from ui.node_panel import build_empty_node_panel, build_node_panel
 
 
 # ---------------------------------------------------------------------------
@@ -42,13 +41,18 @@ UPDATE_INTERVAL: float = 1.0
 #: in sync and never diverge silently.
 REFRESH_PER_SECOND: float = 1.0 / UPDATE_INTERVAL
 
-#: How many historical data-points to keep for sparkline trend charts.
-TREND_HISTORY_SIZE: int = 10
+#: Default initial view shown in the main content area.
+DEFAULT_VIEW: str = "nodes"
 
-#: Fallback grid dimensions used when the layout object carries no metadata.
-#: Should match the defaults defined in GRID_PRESET / build_layout().
-DEFAULT_GRID_COLS: int = 3
-DEFAULT_GRID_ROWS: int = 3
+#: Static sidebar menu definition.
+#: Each item is defined as: (shortcut_key, view_id, label)
+MENU_ITEMS: tuple[tuple[str, str, str], ...] = (
+    ("1", "prometheus", "Prometheus"),
+    ("2", "nodes", "Nodes"),
+    ("3", "cluster", "Cluster"),
+    ("4", "gateway", "Gateway"),
+    ("5", "app", "App"),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -65,17 +69,12 @@ def create_context() -> dict:
     Returns:
         A dictionary with the following keys:
 
-        - ``start_time`` (*float*): ``time.time()`` at dashboard launch,
-          used to compute uptime.
-        - ``cpu_hist`` (*deque[float]*): Rolling window of average-CPU
-          samples, capped at :data:`TREND_HISTORY_SIZE` entries.
-        - ``mem_hist`` (*deque[float]*): Rolling window of average-memory
-          samples, capped at :data:`TREND_HISTORY_SIZE` entries.
+        - ``start_time`` (*float*): ``time.time()`` at dashboard launch, used to compute uptime.
+        - ``current_view`` (*str*): Identifier of the currently active content page.
     """
     return {
         "start_time": time.time(),
-        "cpu_hist": deque(maxlen=TREND_HISTORY_SIZE),
-        "mem_hist": deque(maxlen=TREND_HISTORY_SIZE),
+        "current_view": DEFAULT_VIEW,
     }
 
 
@@ -84,67 +83,56 @@ def create_context() -> dict:
 # ---------------------------------------------------------------------------
 
 
-def update_node_grid(layout, nodes: list[dict]) -> None:
-    """Populate the node grid section of the layout with live node data.
-
-    The grid dimensions are read from metadata attributes set by
-    :func:`ui.layout.build_layout`.  If those attributes are absent the
-    module-level defaults :data:`DEFAULT_GRID_COLS` / :data:`DEFAULT_GRID_ROWS`
-    are used as a fallback.
-
-    Nodes that exceed the grid capacity are silently dropped; a warning is
-    logged so operators can detect mismatches between cluster size and
-    configured grid preset.
+def update_sidebar(layout, ctx: dict) -> None:
+    """Render the navigation sidebar for the currently active view.
 
     Args:
-        layout: The Rich ``Layout`` object that owns all named sections.
-        nodes:  List of node-state dictionaries returned by
-                :func:`data.fake_cluster.get_cluster_state`.
+        layout: The active Rich ``Layout`` tree.
+        ctx: Runtime context dictionary containing navigation state.
     """
-    cols: int = getattr(layout["nodes"], "_grid_cols", DEFAULT_GRID_COLS)
-    rows: int = getattr(layout["nodes"], "_grid_rows", DEFAULT_GRID_ROWS)
-    capacity: int = cols * rows
-
-    panels = [build_node_panel(node) for node in nodes[:capacity]]
-
-    # Pad remaining cells with empty placeholder panels.
-    while len(panels) < capacity:
-        panels.append(build_empty_node_panel())
-
-    for idx, panel in enumerate(panels):
-        layout[f"node_{idx}"].update(panel)
+    layout["sidebar"].update(
+        build_sidebar(MENU_ITEMS, ctx["current_view"])
+    )
 
 
-def attach_trends_to_summary(
-    cluster: dict,
-    cpu_hist: deque,
-    mem_hist: deque
-) -> None:
-    """Append the latest CPU/memory samples and attach trend lists to *cluster*.
-
-    Mutates ``cluster["summary"]`` in-place by adding two keys:
-    ``cpu_trend`` and ``mem_trend``, each a plain :class:`list` snapshot of
-    the corresponding rolling-window deque.
-
-    Keeping this logic here (rather than inline in the update loop) means the
-    main loop stays thin and the trend behaviour is easy to unit-test in
-    isolation.
+def resolve_view_from_key(key: str) -> str | None:
+    """Resolve a target view identifier from a pressed shortcut key.
 
     Args:
-        cluster:  Cluster-state dictionary as returned by
-                  :func:`data.fake_cluster.get_cluster_state`.
-        cpu_hist: Mutable deque used as a rolling CPU sample buffer.
-        mem_hist: Mutable deque used as a rolling memory sample buffer.
+        key: Single-character keyboard input.
+
+    Returns:
+        The matching view identifier if the key exists in ``MENU_ITEMS``,
+        otherwise ``None``.
     """
-    summary: dict = cluster["summary"]
+    for shortcut, view_id, _label in MENU_ITEMS:
+        if shortcut == key:
+            return view_id
+    return None
 
-    cpu_hist.append(summary["avg_cpu"])
-    mem_hist.append(summary["avg_memory"])
 
-    # Expose immutable snapshots so downstream code cannot accidentally
-    # mutate the live buffers.
-    summary["cpu_trend"] = list(cpu_hist)
-    summary["mem_trend"] = list(mem_hist)
+def apply_navigation_input(ctx: dict, key: str) -> bool:
+    """Apply one navigation key to the runtime context.
+
+    This function is intentionally limited to state mutation only. It does not
+    perform any rendering by itself.
+
+    Args:
+        ctx: Runtime context dictionary.
+        key: Single-character keyboard input.
+
+    Returns:
+        ``True`` if the active view changed, otherwise ``False``.
+    """
+    target_view = resolve_view_from_key(key)
+    if target_view is None:
+        return False
+
+    if target_view == ctx["current_view"]:
+        return False
+
+    ctx["current_view"] = target_view
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -220,10 +208,9 @@ def build():
     tree can be constructed without triggering any I/O or data fetches.
 
     Returns:
-        A Rich ``Layout`` instance pre-configured with the preset defined in
-        :data:`config.GRID_PRESET`.
+        A Rich ``Layout`` instance representing the top-level dashboard shell.
     """
-    return build_layout(GRID_PRESET)
+    return build_layout()
 
 
 def initialize(layout) -> dict:
@@ -242,15 +229,16 @@ def initialize(layout) -> dict:
 
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(ctx["start_time"]))
+    update_sidebar(layout, ctx)
 
     cluster = get_cluster_state()
-    attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
-    layout["summary"].update(build_cluster_summary(cluster["summary"]))
-    update_node_grid(layout, cluster["nodes"])
-
-    # Alerts intentionally not implemented yet (placeholder is explicit).
-    layout["alerts"].update(build_alerts_placeholder())
+    layout["content"].update(
+        build_content_page(
+            ctx["current_view"],
+            cluster,
+        )
+    )
 
     return ctx
 
@@ -259,43 +247,64 @@ def update_frame(layout, ctx: dict) -> None:
     """Fetch fresh data and redraw all dynamic layout sections.
 
     Called once per :data:`UPDATE_INTERVAL` inside the main render loop.
-    Static sections (e.g. alerts placeholder) are intentionally excluded to
-    avoid unnecessary redraws.
 
     Args:
         layout: The active Rich ``Layout`` being rendered by ``Live``.
-        ctx:    The runtime context dictionary produced by :func:`create_context`.
+        ctx: The runtime context dictionary produced by :func:`create_context`.
     """
     layout["header"].update(render_header())
     layout["footer"].update(render_footer(ctx["start_time"]))
+    update_sidebar(layout, ctx)
 
     cluster = get_cluster_state()
-    attach_trends_to_summary(cluster, ctx["cpu_hist"], ctx["mem_hist"])
 
-    layout["summary"].update(build_cluster_summary(cluster["summary"]))
-    update_node_grid(layout, cluster["nodes"])
+    layout["content"].update(
+        build_content_page(
+            ctx["current_view"],
+            cluster,
+        )
+    )
 
 
 def run(layout, ctx: dict) -> None:
     """Start the blocking Live render loop.
 
-    Renders *layout* at :data:`REFRESH_PER_SECOND` and calls
-    :func:`update_frame` every :data:`UPDATE_INTERVAL` seconds.
-    Both constants are derived from a single value to guarantee they stay
-    in sync.
+    The loop reacts to two kinds of events:
+        - periodic refresh deadlines
+        - numeric navigation key presses
+
+    At this stage, only simple menu switching is supported. Valid shortcut
+    keys are defined centrally in ``MENU_ITEMS``.
 
     Args:
-        layout: The fully-initialised Rich ``Layout``.
-        ctx:    The runtime context dictionary.
+        layout: The fully-initialized Rich ``Layout``.
+        ctx: The runtime context dictionary.
 
     Raises:
         KeyboardInterrupt: Propagated to the caller (:func:`run_dashboard`)
-                           so shutdown logic can be executed there.
+            so shutdown logic can be executed there.
     """
-    with Live(layout, refresh_per_second=REFRESH_PER_SECOND, screen=True, transient=True):
+    next_update_at = time.monotonic() + UPDATE_INTERVAL
+
+    with TerminalKeyReader() as key_reader, Live(
+        layout,
+        refresh_per_second=REFRESH_PER_SECOND,
+        screen=True,
+        transient=True,
+    ):
         while True:
-            time.sleep(UPDATE_INTERVAL)
-            update_frame(layout, ctx)
+            timeout = max(0.0, next_update_at - time.monotonic())
+            key = key_reader.read_key(timeout=timeout)
+
+            if key is not None and apply_navigation_input(ctx, key):
+                update_frame(layout, ctx)
+                next_update_at = time.monotonic() + UPDATE_INTERVAL
+                continue
+
+            now = time.monotonic()
+            if now >= next_update_at:
+                update_frame(layout, ctx)
+                next_update_at = now + UPDATE_INTERVAL
 
 
 def shutdown() -> None:

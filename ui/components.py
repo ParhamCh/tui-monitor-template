@@ -21,47 +21,6 @@ from rich.text import Text
 
 
 # ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-#: Maximum number of history samples shown in summary sparklines.
-SPARKLINE_WINDOW_SIZE: int = 10
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _build_sparkline(values: list[int]) -> Text:
-    """Render a compact sparkline from percentage values.
-
-    Each value is expected to be in the range [0, 100]. Values outside this
-    range are clamped before rendering.
-
-    Args:
-        values: Sequence of integer percentage values.
-
-    Returns:
-        A Rich ``Text`` object containing a sparkline composed of Unicode
-        block characters.
-    """
-    blocks = "▁▂▃▄▅▆▇█"
-
-    if not values:
-        return Text("")
-
-    sparkline = Text()
-
-    for value in values[-SPARKLINE_WINDOW_SIZE:]:
-        value = max(0, min(100, int(value)))
-        idx = int(round((len(blocks) - 1) * value / 100))
-        sparkline.append(blocks[idx], style="cyan")
-
-    return sparkline
-
-
-# ---------------------------------------------------------------------------
 # Public renderable builders
 # ---------------------------------------------------------------------------
 
@@ -75,8 +34,8 @@ def build_cluster_summary(summary: dict) -> Panel:
         - Ready node ratio
         - Prometheus health (currently static/mock)
     - Right column:
-        - CPU capacity + average usage + trend sparkline
-        - Memory capacity + average usage + trend sparkline
+        - CPU capacity + average usage
+        - Memory capacity + average usage
 
     Args:
         summary: Cluster summary dictionary prepared by the data/dashboard
@@ -124,13 +83,11 @@ def build_cluster_summary(summary: dict) -> Panel:
         f"CPU: {used_cores}/{total_cores} cores | avg {avg_cpu}% ",
         style="yellow",
     )
-    right_line_1.append_text(_build_sparkline(cpu_trend))
 
     right_line_2 = Text(
         f"MEM: {used_mem}/{total_mem} GB | avg {avg_mem}% ",
         style="yellow",
     )
-    right_line_2.append_text(_build_sparkline(mem_trend))
 
     right_block = Group(right_line_1, right_line_2)
 
