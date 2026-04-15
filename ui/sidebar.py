@@ -31,8 +31,8 @@ def _build_menu_item(shortcut: str, view_id: str, label: str, current_view: str)
     is_active = view_id == current_view
 
     item = Text()
-    item.append("> " if is_active else "  ", style="cyan" if is_active else "grey50")
-    item.append(f"{shortcut}. ", style="bold" if is_active else "white")
+    item.append("> " if is_active else "  ", style="bold cyan" if is_active else "grey50")
+    item.append(f"{shortcut}. ", style="bold cyan" if is_active else "white")
     item.append(label, style="bold cyan" if is_active else "white")
 
     return item

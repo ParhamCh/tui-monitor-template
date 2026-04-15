@@ -31,7 +31,7 @@ FOOTER_HEIGHT: int = 3
 
 #: Main horizontal split ratio between the sidebar and content areas.
 SIDEBAR_RATIO: int = 1
-CONTENT_RATIO: int = 4
+CONTENT_RATIO: int = 6
 
 
 # ---------------------------------------------------------------------------
