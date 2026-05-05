@@ -14,7 +14,7 @@ It also owns the node-grid preset definition and fallback behavior.
 from rich.layout import Layout
 
 from config import GRID_PRESET
-from ui.components import build_alerts_placeholder, build_cluster_summary
+from ui.components import build_alerts_panel, build_cluster_summary
 from ui.node_panel import build_empty_node_panel, build_node_panel
 
 
@@ -119,6 +119,6 @@ def build_nodes_page(cluster: dict) -> Layout:
 
     page["summary"].update(build_cluster_summary(cluster["summary"]))
     page["nodes"].update(_build_node_grid_layout(cluster["nodes"]))
-    page["alerts"].update(build_alerts_placeholder())
+    page["alerts"].update(build_alerts_panel(cluster["alerts"]))
 
     return page

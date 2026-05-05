@@ -5,8 +5,7 @@ Reusable Rich renderable builders for high-level dashboard sections.
 
 This module currently provides:
     - Cluster summary panel rendering
-    - Alerts placeholder panel rendering
-    - Small sparkline helper for trend visualization
+    - Alerts panel rendering
 
 These builders are intentionally presentation-focused and should not contain
 data-fetching logic. All input data must be prepared upstream by the dashboard
@@ -21,6 +20,48 @@ from rich.text import Text
 
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+ALERT_VISIBLE_LINES: int = 4
+
+HEALTH_STYLES: dict[str, str] = {
+    "HEALTHY": "green",
+    "DEGRADED": "yellow",
+    "CRITICAL": "bold red",
+}
+
+ALERT_SEVERITY_STYLES: dict[str, str] = {
+    "WARN": "yellow",
+    "CRIT": "bold red",
+}
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _health_style(health: str) -> str:
+    """Return display style for a cluster health label."""
+    return HEALTH_STYLES.get(health, "white")
+
+
+def _alert_severity_style(severity: str) -> str:
+    """Return display style for an alert severity label."""
+    return ALERT_SEVERITY_STYLES.get(severity, "white")
+
+
+def _alerts_total_style(alerts_total: int, alerts_crit: int) -> str:
+    """Return display style for the summary alert count."""
+    if alerts_crit:
+        return "bold red"
+    if alerts_total:
+        return "yellow"
+    return "green"
+
+
+# ---------------------------------------------------------------------------
 # Public renderable builders
 # ---------------------------------------------------------------------------
 
@@ -32,7 +73,7 @@ def build_cluster_summary(summary: dict) -> Panel:
 
     - Left column:
         - Ready node ratio
-        - Prometheus health (currently static/mock)
+        - Cluster health and alert counts
     - Right column:
         - CPU capacity + average usage
         - Memory capacity + average usage
@@ -55,14 +96,19 @@ def build_cluster_summary(summary: dict) -> Panel:
         style="cyan",
     )
 
-    # NOTE:
-    # Prometheus health is currently static and purely demonstrational.
-    # It is not yet sourced from a real service-state provider.
-    prom_health = "Healthy"
-    prom_style = "green" if prom_health == "Healthy" else "yellow"
+    health = summary.get("health", "UNKNOWN")
+    alerts_total = summary.get("alerts_total", 0)
+    alerts_warn = summary.get("alerts_warn", 0)
+    alerts_crit = summary.get("alerts_crit", 0)
 
-    left_line_2 = Text("Prometheus: ", style="grey70")
-    left_line_2.append(prom_health, style=prom_style)
+    left_line_2 = Text("Health: ", style="grey70")
+    left_line_2.append(health, style=_health_style(health))
+    left_line_2.append(" | Alerts: ", style="grey70")
+    left_line_2.append(
+        str(alerts_total),
+        style=_alerts_total_style(alerts_total, alerts_crit),
+    )
+    left_line_2.append(f" ({alerts_warn}W/{alerts_crit}C)", style="grey70")
 
     left_block = Group(left_line_1, left_line_2)
 
@@ -72,12 +118,10 @@ def build_cluster_summary(summary: dict) -> Panel:
     used_cores = summary.get("used_cores", 0)
     total_cores = summary.get("total_cores", 0)
     avg_cpu = summary.get("avg_cpu", 0)
-    cpu_trend = summary.get("cpu_trend", [])
 
     used_mem = summary.get("used_mem_gb", 0)
     total_mem = summary.get("total_mem_gb", 0)
     avg_mem = summary.get("avg_memory", 0)
-    mem_trend = summary.get("mem_trend", [])
 
     right_line_1 = Text(
         f"CPU: {used_cores}/{total_cores} cores | avg {avg_cpu}% ",
@@ -99,24 +143,44 @@ def build_cluster_summary(summary: dict) -> Panel:
     grid.add_column(ratio=1, justify="center")
     grid.add_row(left_block, right_block)
 
-    return Panel(grid, title="Cluster Summary", border_style="green")
+    return Panel(grid, title="Cluster Summary", border_style=_health_style(health))
 
 
-def build_alerts_placeholder() -> Panel:
-    """Build a placeholder alerts panel.
+def build_alerts_panel(alerts: list[dict]) -> Panel:
+    """Build the alerts panel from alert dictionaries.
 
-    This panel explicitly communicates that alert handling has not yet been
-    implemented, to avoid confusing "no alerts" with "alerts subsystem absent".
+    Args:
+        alerts: Alert dictionaries prepared by the data layer.
 
     Returns:
-        A Rich ``Panel`` containing a centered placeholder message.
+        A Rich ``Panel`` containing current alerts or a clear empty state.
     """
-    message = Text("Alerts panel is not implemented yet", style="yellow")
-    hint = Text("Coming soon", style="grey50")
+    if not alerts:
+        content = Align.center(
+            Text("No active alerts", style="green"),
+            vertical="middle",
+        )
+        return Panel(content, title="Alerts", border_style="green")
 
-    content = Align.center(
-        Text.assemble(message, "\n", hint),
-        vertical="middle",
+    visible_alerts = alerts[:ALERT_VISIBLE_LINES]
+    hidden_count = len(alerts) - len(visible_alerts)
+    lines: list[Text] = []
+
+    for alert in visible_alerts:
+        severity = alert["severity"]
+        line = Text()
+        line.append(f"{severity:<4}", style=_alert_severity_style(severity))
+        line.append("  ")
+        line.append(alert["node"], style="cyan")
+        line.append("  ")
+        line.append(alert["message"], style="white")
+        lines.append(line)
+
+    if hidden_count > 0:
+        lines[-1] = Text(f"+{hidden_count} more alerts", style="grey70")
+
+    return Panel(
+        Group(*lines),
+        title="Alerts",
+        border_style="bold red" if any(alert["severity"] == "CRIT" for alert in alerts) else "yellow",
     )
-
-    return Panel(content, title="Alerts", border_style="yellow")
