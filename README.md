@@ -49,6 +49,7 @@ The current implementation focuses on a cluster-monitoring demo with navigation-
   - disk
   - pod count
   - latency
+- alerts panel with active fake alerts
 - custom expandable metric bars
 - color-coded severity styling
 - empty placeholder panels for unused grid cells
@@ -127,7 +128,7 @@ Full nodes page composition:
 Reusable high-level UI components:
 
 * cluster summary
-* alerts placeholder
+* alerts panel
 
 #### `ui/node_panel.py`
 
@@ -246,6 +247,7 @@ What is already solid:
 * non-blocking terminal input
 * modular UI separation
 * reusable node grid rendering
+* fake alert rendering
 * fake data integration
 
 What is still intentionally incomplete:
@@ -254,7 +256,7 @@ What is still intentionally incomplete:
 * real Cluster page
 * real Gateway page
 * real Application page
-* real alerts implementation
+* real alert source/integration
 * richer status/help feedback in footer
 
 ---
